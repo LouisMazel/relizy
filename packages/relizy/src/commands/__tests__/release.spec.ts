@@ -65,6 +65,7 @@ vi.mock('../provider-release', async importActual => ({
 vi.mock('../social', async importActual => ({
   describeSocialResult: (await importActual<typeof import('../social')>()).describeSocialResult,
   isAnySocialPlatformEnabled: (await importActual<typeof import('../social')>()).isAnySocialPlatformEnabled,
+  getSocialStepSkip: (await importActual<typeof import('../social')>()).getSocialStepSkip,
   social: vi.fn(),
   socialSafetyCheck: vi.fn(),
 }))
@@ -1520,6 +1521,27 @@ describe('Given the output of release in CI', () => {
       expect.stringMatching(/^✔ twitter skipped \(prerelease\) {2}\d+ms$/),
       expect.stringMatching(/^ {2}○ Social media +skipped \(twitter: prerelease\)$/),
     ]))
+  })
+
+  it('Then skips the social posts without platform enabled, with why', async () => {
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      release: { social: true, prComment: false },
+      social: {
+        twitter: { enabled: false },
+        slack: { enabled: false },
+      },
+    }))
+    vi.mocked(bump).mockResolvedValue({
+      newVersion: '1.0.0',
+      oldVersion: '0.9.0',
+      bumped: true,
+      bumpedPackages: [],
+    })
+
+    await release({ safetyCheck: false })
+
+    expect(social).not.toHaveBeenCalled()
+    expect(output.join('').split('\n')).toContain('○ Social posts skipped (no platform enabled)')
   })
 
   it('Then marks the steps that failed without stopping the release', async () => {

@@ -114,6 +114,96 @@ describe('Given a selective monorepo with commits since its last release', () =>
       expect(steps.push).toMatchObject({ enabled: false, disabledBy: 'release.commit' })
     })
 
+    it('Then announces the social posts as the release decides: a platform enabled that posts this release', async () => {
+      const social = async (options: Parameters<typeof previewRelease>[0]) => (await previewRelease(options)).steps.find(step => step.name === 'social')
+
+      // No platform enabled: the release skips the step
+      expect(await social({})).toEqual({
+        name: 'social',
+        label: expect.any(String),
+        enabled: false,
+        disabledBy: 'social',
+        reason: 'no platform enabled',
+      })
+      expect(await social({
+        overrides: {
+          social: {
+            slack: { enabled: true },
+          },
+        },
+      })).toMatchObject({ enabled: true })
+      // A prerelease: every platform leaves it out by default (onlyStable)
+      expect(await social({
+        profile: 'beta',
+        overrides: {
+          social: {
+            slack: { enabled: true },
+            teams: { enabled: true },
+          },
+        },
+      })).toMatchObject({
+        enabled: false,
+        reason: 'slack: prerelease, teams: prerelease',
+        disabledBy: 'social.slack.onlyStable, social.teams.onlyStable',
+      })
+      expect(await social({
+        profile: 'beta',
+        overrides: {
+          social: {
+            slack: { enabled: true, onlyStable: false },
+          },
+        },
+      })).toMatchObject({ enabled: true })
+      expect(await social({
+        profile: 'beta',
+        overrides: {
+          social: {
+            twitter: { enabled: true, onlyStable: false },
+            slack: { enabled: true },
+          },
+        },
+      })).toMatchObject({ enabled: true })
+      // Versions left staged by the release (approval off): nothing to announce yet
+      expect(await social({
+        overrides: {
+          social: {
+            slack: { enabled: true },
+          },
+          publish: { staged: true, approve: false },
+        },
+      })).toMatchObject({
+        enabled: false,
+        disabledBy: 'publish.approve',
+        reason: 'versions awaiting approval: run "relizy social" once approved',
+      })
+      // In CI, npm never approves: the option is not what turns the step off
+      vi.stubEnv('CI', 'true')
+      try {
+        const inCi = await social({
+          overrides: {
+            social: {
+              slack: { enabled: true },
+            },
+            publish: { staged: true },
+          },
+        })
+        expect(inCi).toMatchObject({ enabled: false, reason: 'versions awaiting approval: run "relizy social" once approved' })
+        expect(inCi!.disabledBy).toBeUndefined()
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+      // The option off keeps its reason
+      expect(await social({
+        overrides: {
+          release: { social: false },
+          social: {
+            slack: { enabled: true },
+          },
+        },
+      })).toMatchObject({ enabled: false, disabledBy: 'release.social' })
+    }, 20_000)
+
     it('Then lists the approval after the provider release when the project stages, and after the publish of a canary', async () => {
       const names = (preview: Awaited<ReturnType<typeof previewRelease>>) => preview.steps.map(step => step.name)
 

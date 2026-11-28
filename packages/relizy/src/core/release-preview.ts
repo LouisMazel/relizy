@@ -5,10 +5,11 @@ import type { MergePreviewProblem } from './merge-preview'
 import type { PackageSet } from './package-sets'
 import type { ReleaseStepId } from './steps'
 import { logger } from '@maz-ui/node'
-import { aggregateIndependentChangelogs, fetchGitTags, getPublishTag } from '@relizy/core'
+import { aggregateIndependentChangelogs, fetchGitTags, getPublishTag, isInCI } from '@relizy/core'
 import * as semver from 'semver'
 import { planBumps } from '../commands/bump'
 import { CANARY_OFF_OPTIONS, getReleaseConfig } from '../commands/release'
+import { getSocialStepSkip } from '../commands/social'
 import { getSyncSource, getSyncTargets } from './branch-sync'
 import { generateChangelog } from './changelog'
 import { getReleaseTags } from './git'
@@ -20,6 +21,7 @@ import { readPackageJson } from './repo'
 import { resetRewrittenTagCache } from './rewritten-tags'
 import { getStagingShare } from './staging'
 import { RELEASE_STEP_LABELS } from './steps'
+import { getKnownReleaseVersions } from './version'
 
 /** A commit that explains a bump */
 export interface PreviewCommit {
@@ -100,6 +102,8 @@ export interface PreviewStep {
   enabled: boolean
   /** The option turning the step off, when it is off: `release.social`, `release.canary` */
   disabledBy?: string
+  /** Why the step does nothing when its option is on, as the release says it: `no platform enabled` for `social` */
+  reason?: string
 }
 
 export interface PreviewChangelog {
@@ -429,7 +433,7 @@ function collectTags(plan: ReleasePlan): Map<string, string> {
 }
 
 /** The steps of `relizy release` in its order, and what turns each one off */
-function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): PreviewStep[] {
+function getSteps(config: ResolvedRelizyConfig, { syncs, socialSkip }: { syncs: boolean, socialSkip?: { reason: string, disabledBy?: string } }): PreviewStep[] {
   const { release } = config
   const state = (key: keyof typeof release, ...needs: (keyof typeof release)[]): Pick<PreviewStep, 'enabled' | 'disabledBy'> => {
     const off = [key, ...needs].find(option => release[option] === false)
@@ -508,7 +512,10 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
     {
       name: 'social',
       label: RELEASE_STEP_LABELS.social,
-      ...state('social'),
+      // As the release: on, but nothing to post without platform, with versions awaiting approval or prereleases only
+      ...(release.social && socialSkip
+        ? { enabled: false, ...socialSkip }
+        : state('social')),
     },
     {
       name: 'pr-comment',
@@ -516,6 +523,16 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       ...state('prComment'),
     },
   ]
+}
+
+/**
+ * Whether versions of the release stay staged after it: the approval step
+ * does not run (`publish.approve: false`, or in CI, where npm never approves)
+ */
+function isApprovalPending(config: ResolvedRelizyConfig, sets: PreviewSet[]): boolean {
+  const staged = sets.some(set => set.packages.some(pkg => pkg.publish?.staged))
+
+  return staged && config.release.publish !== false && (config.publish.approve === false || isInCI())
 }
 
 function getVersionModeOf(plan: ReleasePlan): ReleasePreview['versionMode'] {
@@ -579,6 +596,12 @@ export async function previewRelease(options: PreviewReleaseOptions = {}): Promi
         : [],
       steps: getSteps(plan.config, {
         syncs: getSyncTargets(plan.config, await getSyncSource(plan.config.cwd)).length > 0,
+        socialSkip: getSocialStepSkip(plan.config, {
+          awaitingApproval: isApprovalPending(plan.config, sets),
+          versions: bumpResult.bumped
+            ? getKnownReleaseVersions({ config: plan.config, bumpResult })
+            : undefined,
+        }),
       }),
       problems: checks.problems,
       changelogs,
