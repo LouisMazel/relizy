@@ -54,7 +54,7 @@ Each release adds a section at the top of the `CHANGELOG.md` of the package, und
 - **Breaking changes**: a commit with `!` or a `BREAKING CHANGE:` footer is prefixed with `⚠️`, and listed again, with its body, under `#### ⚠️ Breaking Changes`.
 - **Contributors**: see [Contributors](#contributors).
 
-A release without relevant commit gets the text of [`templates.emptyChangelogContent`](./../config/commit-templates.md) (`No relevant changes for this release`).
+A release without relevant commit gets the text of [`templates.emptyChangelogContent`](./../config/commit-templates.md) (`No relevant changes for this release`), in the file and in its previews (`relizy release --dry-run`, `previewChangelog()`, the merge preview).
 
 ## Commit Bodies
 

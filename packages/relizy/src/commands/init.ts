@@ -7,7 +7,7 @@ import process from 'node:process'
 import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, spinner, text } from '@clack/prompts'
 import { detectAgentTargets, execPromise, logger } from '@maz-ui/node'
 import { isInCI, tryGitSync } from '@relizy/core'
-import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getNpmRegistry, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
+import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findExtensibleCommitMsgHook, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getNpmRegistry, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isPublicNpmRegistry, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
 import { askAgentTargets, setupRelizyAgents } from '../core/agents'
 import { readOwnVersion } from '../core/own-version'
 
@@ -292,6 +292,31 @@ async function askPublish(detection: ProjectDetection, answers: InitAnswers): Pr
       placeholder: `e.g. ${getRunCommand(detection.packageManager, 'build')}`,
       initialValue: answers.buildCmd,
     }),
+    // Only npmjs stages
+    ...(isPublicNpmRegistry(detected.registry ?? getNpmRegistry(detection.cwd))
+      ? {
+          staged: await answer(select({
+            message: 'Stage versions for approval before they are installable?',
+            initialValue: answers.staged ?? 'none',
+            options: [
+              { value: 'none' as const, label: 'No, publish directly', hint: 'default' },
+              { value: 'stable' as const, label: 'Stable releases only', hint: 'prereleases and canaries published directly' },
+              { value: 'all' as const, label: 'Every version', hint: 'canaries published directly' },
+            ],
+          })),
+        }
+      : {}),
+    profiles: await answer(multiselect({
+      message: 'Also release on other channels? (written as profiles: relizy release --profile <name>)',
+      required: false,
+      initialValues: answers.profiles ?? [],
+      options: [
+        { value: 'alpha' as const, label: 'alpha', hint: 'prereleases (1.2.0-alpha.0) under the alpha dist-tag' },
+        { value: 'beta' as const, label: 'beta', hint: 'prereleases (1.2.0-beta.0) under the beta dist-tag' },
+        { value: 'rc' as const, label: 'rc', hint: 'release candidates (1.2.0-rc.0) under the rc dist-tag' },
+        { value: 'canary' as const, label: 'canary', hint: 'a version of the current commit under the canary dist-tag, without commit nor tag' },
+      ],
+    })),
   }
 }
 
@@ -420,6 +445,8 @@ interface InitPlan {
   rootFields: { name?: string, version?: string }
   scripts: Record<string, string>
   hook: boolean
+  /** relizy commitlint is added at the end of the existing hook */
+  hookAdded?: boolean
   /** The command adding relizy to the devDependencies, when it is not a dependency yet */
   install?: string
   /** The hook is written in `.git/hooks`, and at each install by the prepare script */
@@ -477,7 +504,10 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
     const detail = `in the devDependencies (${plan.install})`
     rows.push(`${c.cyan('install')}  relizy ${c.dim(detail)}`)
   }
-  if (plan.hook) {
+  if (plan.hook && plan.hookAdded) {
+    rows.push(`${c.yellow('update')}   commit-msg hook ${c.dim('adds relizy commitlint at its end')}`)
+  }
+  else if (plan.hook) {
     const detail = plan.localHook
       ? 'runs relizy commitlint at each commit, in .git/hooks and at each install for the other clones'
       : 'runs relizy commitlint at each commit'
@@ -506,6 +536,46 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   note(rows.join('\n'), 'Changes')
 }
 
+/** The files a package manager changes when it adds relizy */
+const INSTALL_FILES = ['package.json', 'pnpm-lock.yaml']
+
+/** The content of each file before the install, `undefined` when it does not exist */
+function snapshotFiles(cwd: string, files: string[]): Map<string, string | undefined> {
+  return new Map(files.map(file => [
+    file,
+    existsSync(join(cwd, file))
+      ? readFileSync(join(cwd, file), 'utf8')
+      : undefined,
+  ]))
+}
+
+function restoreFiles(cwd: string, snapshot: Map<string, string | undefined>): void {
+  for (const [file, content] of snapshot) {
+    if (content === undefined) {
+      rmSync(join(cwd, file), { force: true })
+    }
+    else {
+      writeFileSync(join(cwd, file), content)
+    }
+  }
+}
+
+/**
+ * pnpm refused to finish the install: dependencies of the project have build
+ * scripts awaiting approval (`strictDepBuilds`), relizy has none
+ */
+function isIgnoredBuildsError(error: unknown): boolean {
+  const text = [
+    error instanceof Error
+      ? error.message
+      : String(error),
+    (error as { stderr?: unknown } | undefined)?.stderr,
+    (error as { stdout?: unknown } | undefined)?.stdout,
+  ].filter(value => typeof value === 'string').join('\n')
+
+  return text.includes('ERR_PNPM_IGNORED_BUILDS')
+}
+
 /** Never throws: a failed install tells the command to run */
 async function installRelizy(cwd: string, command: string): Promise<void> {
   // Without terminal (CI), a spinner writes each of its frames
@@ -513,6 +583,7 @@ async function installRelizy(cwd: string, command: string): Promise<void> {
     ? spinner()
     : { start: log.step, stop: log.success, error: log.warn }
   progress.start(`Installing relizy (${command})`)
+  const snapshot = snapshotFiles(cwd, INSTALL_FILES)
 
   try {
     await execPromise(command, {
@@ -524,6 +595,21 @@ async function installRelizy(cwd: string, command: string): Promise<void> {
     progress.stop('Installed relizy')
   }
   catch (error) {
+    if (isIgnoredBuildsError(error)) {
+      // pnpm already wrote relizy in the package.json and the lockfile: undone, nothing half installed
+      let restored = 'package.json and pnpm-lock.yaml restored'
+      try {
+        restoreFiles(cwd, snapshot)
+      }
+      catch (restoreError) {
+        restored = `package.json and pnpm-lock.yaml could not be restored (${restoreError instanceof Error
+          ? restoreError.message
+          : String(restoreError)}): remove relizy from them`
+      }
+      progress.error(`relizy not installed - pnpm stopped on build scripts of dependencies of the project awaiting approval (ERR_PNPM_IGNORED_BUILDS), ${restored}: run "pnpm approve-builds", then "${command}"`)
+      return
+    }
+
     const message = error instanceof Error
       ? error.message
       : String(error)
@@ -531,9 +617,9 @@ async function installRelizy(cwd: string, command: string): Promise<void> {
   }
 }
 
-function installHook(cwd: string, force: boolean): InstalledHook | undefined {
+function installHook(cwd: string, { force, add }: { force: boolean, add: boolean }): InstalledHook | undefined {
   try {
-    return installCommitMsgHook({ cwd, force })
+    return installCommitMsgHook({ cwd, force, add })
   }
   catch (error) {
     log.warn(`commit-msg hook not installed - ${error instanceof Error
@@ -547,10 +633,10 @@ function installHook(cwd: string, force: boolean): InstalledHook | undefined {
  * Install the commit-msg hook: not asked when one already runs relizy
  * commitlint, and another hook is only replaced once confirmed
  */
-async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Promise<{ install: boolean, force: boolean }> {
+async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Promise<{ install: boolean, force: boolean, add: boolean }> {
   if (hasRelizyCommitMsgHook(cwd)) {
     kept.push({ target: 'commit-msg hook', detail: 'already runs relizy commitlint' })
-    return { install: false, force: false }
+    return { install: false, force: false, add: false }
   }
 
   const other = findOtherCommitMsgHook(cwd)
@@ -559,7 +645,19 @@ async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Pro
       message: 'Lint each commit message with relizy commitlint? (commit-msg hook)',
       initialValue: true,
     }))
-    return { install, force: false }
+    return { install, force: false, add: false }
+  }
+
+  // A plain shell hook without commit linter: relizy commitlint is added at its end
+  if (findExtensibleCommitMsgHook(cwd)) {
+    const add = await ask(interactive, true, () => confirm({
+      message: `Add relizy commitlint to the commit-msg hook (${other})?`,
+      initialValue: true,
+    }))
+    if (!add) {
+      log.warn(`A commit-msg hook already exists (${other}): kept, add "${COMMIT_MSG_HOOK_COMMAND}" to it to check the commit messages`)
+    }
+    return { install: add, force: false, add }
   }
 
   const replace = await ask(interactive, false, () => confirm({
@@ -569,7 +667,7 @@ async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Pro
   if (!replace) {
     log.warn(`A commit-msg hook already exists (${other}): kept, add "${COMMIT_MSG_HOOK_COMMAND}" to it to check the commit messages`)
   }
-  return { install: replace, force: replace }
+  return { install: replace, force: replace, add: false }
 }
 
 /**
@@ -903,9 +1001,18 @@ async function askWorkflow({ detection, answers, commitMessage, interactive, rel
   }
 }
 
+/**
+ * The npm token is only required for a restricted package or another
+ * registry: on public npmjs, trusted publishing (`relizy trust`) publishes
+ * from the CI, and a local release uses `npm login`
+ */
+export function npmTokenRequired(answers: Pick<InitAnswers, 'goal' | 'access' | 'registry'>): boolean {
+  return answers.goal === 'publish' && (answers.access === 'restricted' || Boolean(answers.registry && !isPublicNpmRegistry(answers.registry)))
+}
+
 function getRequiredTokens(detection: ProjectDetection, answers: InitAnswers): string[] {
   return [
-    ...(answers.goal === 'publish'
+    ...(npmTokenRequired(answers)
       ? ['NPM_TOKEN']
       : []),
     ...(detection.provider === 'github'
@@ -997,8 +1104,11 @@ function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workfl
     ...(ciTokens.length > 0
       ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${ciTokens.map(token => c.cyan(token)).join(', ')}`]
       : []),
-    ...(answers.goal === 'publish'
-      ? [`Publish without token ${c.cyan('https://relizy.dev/guide/trusted-publishing')} ${c.dim('(trusted publishing, after a first publish)')}`]
+    ...(answers.goal === 'publish' && !npmTokenRequired(answers)
+      ? [
+          `Trusted publishing    ${c.cyan('npx relizy trust')} ${c.dim('(once each package is on npm)')}`,
+          `                      ${c.dim('or the NPM_TOKEN secret: only without trusted publishing, or for the first publish of a new package')}`,
+        ]
       : []),
     `All the options       ${c.cyan('https://relizy.dev/config/overview')}`,
   ]
@@ -1098,7 +1208,7 @@ async function runInit({ options, detection, configFile, interactive }: {
   const kept: KeptStep[] = []
   const hook = steps.has('commitlint')
     ? await askHook(cwd, interactive, kept)
-    : { install: false, force: false }
+    : { install: false, force: false, add: false }
 
   const agents = steps.has('agents')
     ? await askAgents(cwd, interactive, kept)
@@ -1179,6 +1289,7 @@ async function runInit({ options, detection, configFile, interactive }: {
       ...prepareScript,
     },
     hook: hook.install,
+    hookAdded: hook.add,
     // The config imports relizy, the prepare script and the CI run it
     ...(!detection.root.hasRelizy && {
       install: getInstallCommand(detection, readOwnVersion()),
@@ -1225,14 +1336,17 @@ async function runInit({ options, detection, configFile, interactive }: {
   }
 
   const installedHook = plan.hook
-    ? installHook(cwd, hook.force)
+    ? installHook(cwd, hook)
     : undefined
   if (installedHook) {
+    const hookPath = relative(cwd, installedHook.path)
     log.success(installedHook.status === 'unchanged'
-      ? `The commit-msg hook already runs relizy commitlint (${relative(cwd, installedHook.path)})`
-      : `${installedHook.status === 'replaced'
-        ? 'Replaced'
-        : 'Installed'} the commit-msg hook (${relative(cwd, installedHook.path)})`)
+      ? `The commit-msg hook already runs relizy commitlint (${hookPath})`
+      : installedHook.status === 'added'
+        ? `Added relizy commitlint to the commit-msg hook (${hookPath})`
+        : `${installedHook.status === 'replaced'
+          ? 'Replaced'
+          : 'Installed'} the commit-msg hook (${hookPath})`)
     if (installedHook.removed) {
       log.success(`Removed the old commit-msg hook, no longer run (${relative(cwd, installedHook.removed)})`)
     }

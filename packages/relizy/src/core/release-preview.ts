@@ -5,10 +5,11 @@ import type { MergePreviewProblem } from './merge-preview'
 import type { PackageSet } from './package-sets'
 import type { ReleaseStepId } from './steps'
 import { logger } from '@maz-ui/node'
-import { aggregateIndependentChangelogs, fetchGitTags } from '@relizy/core'
+import { aggregateIndependentChangelogs, fetchGitTags, getPublishTag, isInCI } from '@relizy/core'
 import * as semver from 'semver'
 import { planBumps } from '../commands/bump'
 import { CANARY_OFF_OPTIONS, getReleaseConfig } from '../commands/release'
+import { getSocialStepSkip } from '../commands/social'
 import { getSyncSource, getSyncTargets } from './branch-sync'
 import { generateChangelog } from './changelog'
 import { getReleaseTags } from './git'
@@ -18,7 +19,9 @@ import { readPackageSets, relativePath } from './package-sets'
 import { getReleaseOverview } from './release-overview'
 import { readPackageJson } from './repo'
 import { resetRewrittenTagCache } from './rewritten-tags'
+import { getStagingShare } from './staging'
 import { RELEASE_STEP_LABELS } from './steps'
+import { getKnownReleaseVersions } from './version'
 
 /** A commit that explains a bump */
 export interface PreviewCommit {
@@ -66,6 +69,8 @@ export interface PreviewPackage {
   }
   /** A peer dependency making a breaking change that the published range of the package rejects */
   breakingPeerDependency?: string
+  /** With `publish.staged`: the dist-tag of the version and whether it is staged (awaiting approval) or published directly */
+  publish?: { distTag: string, staged: boolean }
 }
 
 export interface PreviewSet {
@@ -97,6 +102,8 @@ export interface PreviewStep {
   enabled: boolean
   /** The option turning the step off, when it is off: `release.social`, `release.canary` */
   disabledBy?: string
+  /** Why the step does nothing when its option is on, as the release says it: `no platform enabled` for `social` */
+  reason?: string
 }
 
 export interface PreviewChangelog {
@@ -306,6 +313,19 @@ function toPreviewPackage({ pkg, plan, set, tag }: {
       : {}),
     reason,
     commits: commits.map(toPreviewCommit),
+    ...(plan.config.publish.staged && !pkg.private
+      ? {
+          publish: {
+            distTag: getPublishTag(newVersion, plan.config.publish.tag),
+            staged: getStagingShare({
+              config: plan.config,
+              packages: [
+                { ...pkg, newVersion },
+              ],
+            }) !== 'none',
+          },
+        }
+      : {}),
     ...(reason === 'dependency'
       ? {
           dependency: {
@@ -413,7 +433,7 @@ function collectTags(plan: ReleasePlan): Map<string, string> {
 }
 
 /** The steps of `relizy release` in its order, and what turns each one off */
-function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): PreviewStep[] {
+function getSteps(config: ResolvedRelizyConfig, { syncs, socialSkip }: { syncs: boolean, socialSkip?: { reason: string, disabledBy?: string } }): PreviewStep[] {
   const { release } = config
   const state = (key: keyof typeof release, ...needs: (keyof typeof release)[]): Pick<PreviewStep, 'enabled' | 'disabledBy'> => {
     const off = [key, ...needs].find(option => release[option] === false)
@@ -430,6 +450,28 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
     }
   }
 
+  // With publish.staged only: every release of today keeps its steps
+  const approve: PreviewStep[] = config.publish.staged
+    ? [
+        {
+          name: 'approve',
+          label: RELEASE_STEP_LABELS.approve,
+          ...(release.publish === false
+            ? state('publish')
+            : config.publish.approve === false
+              ? { enabled: false, disabledBy: 'publish.approve' }
+              : { enabled: true }),
+        },
+      ]
+    : []
+  // A canary has no push: its approval comes right after the publish
+  const afterPublish = release.canary
+    ? approve
+    : []
+  const afterProviderRelease = release.canary
+    ? []
+    : approve
+
   return [
     { name: 'bump', label: RELEASE_STEP_LABELS.bump, enabled: true },
     {
@@ -442,6 +484,7 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       label: RELEASE_STEP_LABELS.publish,
       ...state('publish'),
     },
+    ...afterPublish,
     {
       name: 'commit-and-tag',
       label: RELEASE_STEP_LABELS['commit-and-tag'],
@@ -465,10 +508,14 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       label: RELEASE_STEP_LABELS['provider-release'],
       ...state('providerRelease'),
     },
+    ...afterProviderRelease,
     {
       name: 'social',
       label: RELEASE_STEP_LABELS.social,
-      ...state('social'),
+      // As the release: on, but nothing to post without platform, with versions awaiting approval or prereleases only
+      ...(release.social && socialSkip
+        ? { enabled: false, ...socialSkip }
+        : state('social')),
     },
     {
       name: 'pr-comment',
@@ -476,6 +523,16 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       ...state('prComment'),
     },
   ]
+}
+
+/**
+ * Whether versions of the release stay staged after it: the approval step
+ * does not run (`publish.approve: false`, or in CI, where npm never approves)
+ */
+function isApprovalPending(config: ResolvedRelizyConfig, sets: PreviewSet[]): boolean {
+  const staged = sets.some(set => set.packages.some(pkg => pkg.publish?.staged))
+
+  return staged && config.release.publish !== false && (config.publish.approve === false || isInCI())
 }
 
 function getVersionModeOf(plan: ReleasePlan): ReleasePreview['versionMode'] {
@@ -539,6 +596,12 @@ export async function previewRelease(options: PreviewReleaseOptions = {}): Promi
         : [],
       steps: getSteps(plan.config, {
         syncs: getSyncTargets(plan.config, await getSyncSource(plan.config.cwd)).length > 0,
+        socialSkip: getSocialStepSkip(plan.config, {
+          awaitingApproval: isApprovalPending(plan.config, sets),
+          versions: bumpResult.bumped
+            ? getKnownReleaseVersions({ config: plan.config, bumpResult })
+            : undefined,
+        }),
       }),
       problems: checks.problems,
       changelogs,

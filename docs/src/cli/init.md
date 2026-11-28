@@ -38,15 +38,15 @@ Every question has a default deduced from the repository. When a config already 
 1. **What a release does**: publish to npm, or only version the project (bump, changelog, tag, provider release). Private packages are suggested for versioning only.
 2. **Folders to release** (monorepo with several workspace globs): the globs with publishable packages are checked.
 3. **Version mode** (monorepo): `independent` when the packages are already on different versions, `selective` otherwise. See [version modes](./../guide/version-modes.md).
-4. **Advanced options** (optional): dependency bumps, `0.x` breaking changes, root changelog, listed commit types, changelog format command, npm access, registry, build command, Twitter and Slack posts, PR comment mode and AI rewrites.
-5. **Commit linting**: install the `commit-msg` hook running [`relizy commitlint`](./../commitlint/cli.md) (in `.husky/` when husky is set up). Written in `.git/hooks`, which is not versioned, it is also added to the `prepare` script (`relizy commitlint --install`), so every clone gets it at install.
+4. **Advanced options** (optional): dependency bumps, `0.x` breaking changes, root changelog, listed commit types, changelog format command, npm access, registry, build command, [staging of the versions](./../guide/staged-publishing.md) for approval (npmjs only: no, stable releases only, or every version; written as [`publish.staged`](./../config/publish.md#staged), nothing is written for no), other release channels written as [profiles](./../config/profiles.md) (`alpha`, `beta` and `rc`: prereleases under the dist-tag of the same name, `canary`: a version of the current commit under the `canary` dist-tag; none by default), Twitter and Slack posts, PR comment mode and AI rewrites.
+5. **Commit linting**: install the `commit-msg` hook running [`relizy commitlint`](./../commitlint/cli.md) (in `.husky/` when husky is set up). Written in `.git/hooks`, which is not versioned, it is also added to the `prepare` script (`relizy commitlint --install`), so every clone gets it at install. An existing hook that is a plain shell script, without another commit linter and without `exec` nor `exit` ending it early, gets `npx --no -- relizy commitlint --edit "$1"` added at its end (asked, yes by default; done without asking with `--yes` or without terminal; in `.git/hooks`, only run once relizy is installed, as the hook relizy writes there); another hook is kept, with the line to add, or replaced once confirmed.
 6. **AI agents**: give them the relizy rules and the [relizy MCP server](./../guide/ai-agents.md), as [`relizy mcp init`](./mcp.md#relizy-mcp-init) does, then pick the agents you use (the ones detected in the project, `CLAUDE.md`, `AGENTS.md`, `.cursor/`..., are checked). Another question then offers a `prepare` script ([`relizy mcp update`](./mcp.md#relizy-mcp-update), appended to an existing one) in the root `package.json`, so the rules are kept up to date at each install (a rule you deleted is not recreated).
 7. **Release script**: add `"release": "relizy release"` to the `package.json`, when it has no `release` script.
 8. **Release workflow** (GitHub or GitLab): generate the workflow releasing from the CI, run on demand or at each push on the default branch. See [Release workflow](#release-workflow).
 
 Then `init` shows the config and the list of changes (files created or replaced, `package.json` updates, hook, workflow, AI agents), and asks for a single confirmation.
 
-When Relizy is not a dependency of the project yet, the changes also add it to the devDependencies of the root `package.json`, at the version running `init`, with the package manager of the project (`pnpm add -D relizy@^<version>`...): the config imports it, the `prepare` script and the CI run it. A failed install does not stop `init`, which prints the command to run.
+When Relizy is not a dependency of the project yet, the changes also add it to the devDependencies of the root `package.json`, at the version running `init`, with the package manager of the project (`pnpm add -D relizy@^<version>`...): the config imports it, the `prepare` script and the CI run it. A failed install does not stop `init`, which prints the command to run. When pnpm stops on build scripts of dependencies of the project awaiting approval (`ERR_PNPM_IGNORED_BUILDS`; relizy has none), `init` restores the `package.json` and the `pnpm-lock.yaml` pnpm had changed, and prints the commands to run: `pnpm approve-builds`, then the install of relizy.
 
 When the root `package.json` has no `name` or `version`, they are part of these changes: Relizy reads both. In `unified` and `selective` modes, the version is the highest version of the packages, the shared version bumped at each release. In `independent` mode, it is `0.0.0` and never bumped.
 
@@ -70,6 +70,8 @@ export default defineConfig({
 
 At the end, `init` prints the next steps: the tokens to set in a `.env` file at the root for a local release (Relizy loads it; `npm login` and `gh auth login` replace `NPM_TOKEN` and `GITHUB_TOKEN`, and keep `.env` out of git), preview the release, the `include:` to add on GitLab, and the secrets (GitHub) or CI/CD variables (GitLab) to create.
 
+On public npmjs, `NPM_TOKEN` is optional: the first next step is `npx relizy trust`, which sets up [trusted publishing](./../guide/trusted-publishing.md) once each package is on npm. The token is only for a project without trusted publishing, or for the first publish of a new package, which trusted publishing cannot create. It stays required for a restricted package or another registry. `init` never runs `relizy trust` itself: it needs your npm login and a 2FA code.
+
 ### Release workflow
 
 On GitHub, `init` writes `.github/workflows/release.yml`:
@@ -77,14 +79,16 @@ On GitHub, `init` writes `.github/workflows/release.yml`:
 - run on demand from the Actions tab with a release type (`auto` follows the commits, or `patch`, `minor`, `major`), or at each push on the default branch;
 - one release at a time (`concurrency: release`), and the permissions it needs: `contents: write` for the release commit, the tags and the GitHub release, `pull-requests: write` and `issues: write` for the [PR comment](./../guide/pr-comment.md);
 - the [relizy action](./../guide/github-actions.md#the-relizy-action) `relizy/action@v2`, which sets up your package manager and Node version (`.nvmrc` or `.node-version`), installs from the lockfile and runs `relizy release --yes`, with only the secrets your config needs; or, when you choose the relizy CLI, [these steps written out](./../guide/github-actions.md#the-relizy-action) in the workflow;
-- a step reading the [outputs](./../config/release.md#report) of the release.
+- a step reading the [outputs](./../config/release.md#report) of the release;
+- the update of npm, only when the job's npm is older than 11.15.0 (staged publishing and `npm trust` need it), to `npm@11`. The secret `NPM_TOKEN` is still passed when it exists, and an empty one means no token: Relizy then publishes with trusted publishing.
 
 On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/ci/relizy.yml` when the project already has one (your file is not changed, `init` prints the `include:` to add):
 
 - on gitlab.com, the [relizy component](./../guide/gitlab-ci.md#the-relizy-component) `gitlab.com/relizy/relizy/release@2` of the CI/CD catalog, or the same job written out when you choose the relizy CLI; on a self-managed instance, always the job written out;
 - a manual job on the default branch with a `RELEASE_TYPE` variable, or a job at each push, never run on the release commit it pushes;
 - corepack (pnpm, Yarn) or Bun, the install of the dependencies, the `claude` CLI for the AI rewrites, `relizy release --yes --report-dotenv relizy.env`;
-- the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.
+- the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs;
+- the same update of npm, only when it is older than 11.15.0.
 
 `init` also offers the [merge preview](./../guide/merge-preview.md) of the pull requests, on its own (yes by default, and with `--yes`), even when the release workflow is not generated or already exists: `.github/workflows/merge-preview.yml` on GitHub, which runs the action with `merge-preview: true` (`relizy merge-preview`) on the pull requests into the default branch; on GitLab, the `merge-preview` component (or its job written out) in the file of the release job when `init` generates it, else in `.gitlab/ci/relizy-merge-preview.yml` (or `.gitlab-ci.yml` when the project has none), with the `include:` to add. It comments what the merge releases and fails when the release of the merge would fail (with the commit status `relizy/merge-preview` on GitHub).
 
@@ -104,7 +108,7 @@ Accept the detected values without asking, for scripts and AI agents:
 npx relizy init --yes
 ```
 
-The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added, the AI agents detected in the project are set up (none when no agent is detected), and the release workflow is written, run on demand (an existing one is kept). An existing config is kept, and the other steps follow it. `init` also runs without questions when there is no terminal, or in CI.
+The advanced options are skipped (the versions are published directly, nothing is staged), the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added, the AI agents detected in the project are set up (none when no agent is detected), and the release workflow is written, run on demand (an existing one is kept). An existing config is kept, and the other steps follow it. `init` also runs without questions when there is no terminal, or in CI.
 
 ### --force
 
@@ -157,4 +161,5 @@ See [--config](./commands.md#global-options).
 
 - Preview your next release: `npx relizy release --dry-run`
 - Fine-tune the config: [configuration overview](./../config/overview.md)
+- Set up trusted publishing: [`relizy trust`](./trust.md)
 - Release from your CI: [CI/CD](./../guide/ci-cd.md)

@@ -3,7 +3,8 @@ import type { ResolvedRelizyConfig } from './config'
 import type { BumpStepData, ChangelogStepData, CommitAndTagStepData, PrCommentStepData, ProgressStep, ProviderReleaseStepData, PublishStepData, PublishStepPackage, SocialStepData, SocialStepPost, StepItem } from './events'
 import { getPublishTag } from '@relizy/core'
 import { emitEvent, getRunState } from './events'
-import { getNpmRegistry } from './npm-registry'
+import { buildLegacyRegistryTarget, getNpmRegistry } from './npm-registry'
+import { getTargetPublishAuth } from './publish-checks'
 import { getReleaseUrl } from './social'
 
 /**
@@ -52,6 +53,13 @@ export function recordPublishedPackage(pkg: PublishStepPackage): void {
   getRecorded().published.push(pkg)
 }
 
+/** The packages published so far, without taking them */
+export function peekPublishedPackages(): PublishStepPackage[] {
+  return [
+    ...getRecorded().published,
+  ]
+}
+
 /** Forget what a previous run recorded */
 export function clearPublishedPackages(): void {
   getRecorded().published.splice(0)
@@ -60,12 +68,16 @@ export function clearPublishedPackages(): void {
 /** The packages published since the last call, with the registry and the dist-tag */
 export function takePublishStepData(config: ResolvedRelizyConfig, { dryRun }: { dryRun: boolean }): PublishStepData {
   const packages = getRecorded().published.splice(0)
+  const staged = packages.some(pkg => pkg.status === 'staged')
 
   return {
     registry: config.publish.registry || getNpmRegistry(config.cwd),
     tag: getPublishTag(packages[0]?.version ?? '', config.publish.tag),
     dryRun,
     packages,
+    ...(staged
+      ? { auth: getTargetPublishAuth(config, buildLegacyRegistryTarget(config)).mode }
+      : {}),
   }
 }
 

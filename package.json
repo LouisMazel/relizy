@@ -1,7 +1,7 @@
 {
   "name": "relizy-monorepo",
   "type": "module",
-  "version": "2.4.0",
+  "version": "2.5.0-beta.0",
   "private": true,
   "packageManager": "pnpm@12.18.0",
   "description": "Monorepo of relizy and @relizy/core",
@@ -32,16 +32,16 @@
   "devDependencies": {
     "@maz-ui/eslint-config": "5.6.0",
     "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^5.1.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "cross-env": "10.1.0",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "husky": "9.1.7",
     "jiti": "2.7.0",
-    "lint-staged": "^17.6.0",
-    "nx": "^24.0.5",
+    "lint-staged": "^17.6.1",
+    "nx": "^24.0.6",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [

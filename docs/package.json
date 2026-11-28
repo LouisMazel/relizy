@@ -21,22 +21,22 @@
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
-    "@maz-ui/icons": "5.7.0",
-    "@maz-ui/themes": "5.7.0",
-    "maz-ui": "5.7.0",
-    "vue": "^3.5.44"
+    "@maz-ui/icons": "5.8.1",
+    "@maz-ui/themes": "5.8.1",
+    "maz-ui": "5.8.1",
+    "vue": "^3.5.46"
   },
   "devDependencies": {
-    "@maz-ui/translations": "5.7.0",
-    "@maz-ui/vite-plugin": "5.7.0",
-    "@tailwindcss/vite": "^4.3.4",
-    "tailwindcss": "^4.3.4",
+    "@maz-ui/translations": "5.8.1",
+    "@maz-ui/vite-plugin": "5.8.1",
+    "@tailwindcss/vite": "^4.3.5",
+    "tailwindcss": "^4.3.5",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.14.1",
     "typedoc-vitepress-theme": "^1.1.4",
     "vitepress": "2.0.0-alpha.21",
-    "vitepress-plugin-llms": "^1.14.0",
-    "vue-router": "^5.4.0",
+    "vitepress-plugin-llms": "^1.15.0",
+    "vue-router": "^5.5.1",
     "vue-tsc": "^3.3.14"
   },
   "lint-staged": {

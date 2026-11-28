@@ -92,6 +92,18 @@ Run `relizy merge-preview`, with the options of the release job, in the pipeline
 relizy merge-preview
 ```
 
+### Outside the Pipeline
+
+From a terminal or an app, `--pr-number` (`prNumber` of [`mergePreview()`](./../api/merge-preview.md)) previews and comments a pull request without its pipeline:
+
+```bash
+relizy merge-preview --pr-number 42
+```
+
+Relizy reads the pull request from the API of GitHub or GitLab (its target branch, its last commit, its title), computes the merge on the current checkout, and updates the comment it already posted on the pull request (never a second one). The checkout must be the last commit of the pull request: otherwise the preview is only printed, and nothing is posted. The token is the one of the config, else the one of the logged-in `gh` or `glab` (see [Tokens](./../config/overview.md#tokens)).
+
+When the pull request is not commented, the command warns why, and the report gives it in `mergePreview.posted.reason`: no token, forge unknown (`repo.provider`), pull request not found or closed, checkout not its last commit, refused by the API.
+
 ## How the Merge Is Computed
 
 The preview is the real release of the merge: the commits of the target branch not released yet, plus the ones of the pull request. Each released package tells what the pull request brings to it (`this PR: 1 feature`) and what comes from the target branch (`main: 1 fix`).
@@ -107,7 +119,7 @@ When only the merge will tell (several methods allowed), the preview computes bo
 
 The check fails, and the job exits with an error, only when the release of the merge would fail, or release a broken result. A major bump or a merge that releases nothing are normal outcomes: they never fail it.
 
-- **A version already published**: the new version of a package is already on its registry, the publish would fail. The registry is checked with the token of the job; when it cannot tell (a private registry without token), the preview only warns.
+- **A version already published**: the new version of a package is already on its registry, the publish would fail. The registry is checked with the token of the job; when it cannot tell (a private registry without token), the preview only warns. With [`publish.staged`](./../config/publish.md#staged), a planned version already staged and awaiting approval counts as taken too, and the problem names the fix: `relizy stage approve` or `relizy stage reject`. The staged versions are read with your npm login, so only outside a CI and without trusted publishing (a local preview, an application); in a CI the publish error stays the safety net, and a stage list that cannot be read never fails the preview.
 - **A tag already taken**: a tag of the release already exists on the remote, the push would fail.
 - **A squash commit that is not a Conventional Commit**: the release would ignore the changes of the pull request. Write its title as `type(scope): subject`.
 - **An error**: an invalid config, or a bump that cannot be computed.

@@ -18,8 +18,20 @@ export function isGitlabJobToken(token: string, env: NodeJS.ProcessEnv = process
 }
 
 /**
+ * Whether the token is an OAuth access token of GitLab (64 hexadecimal
+ * characters), such as the one of `glab auth login`: the `PRIVATE-TOKEN`
+ * header rejects it, it authenticates with `Authorization: Bearer`. No
+ * personal, project nor group access token has this format.
+ */
+function isGitlabOAuthToken(token: string): boolean {
+  return /^[0-9a-f]{64}$/.test(token)
+}
+
+/**
  * The auth header of a GitLab API request: `JOB-TOKEN` for the job token of
- * the CI job, `PRIVATE-TOKEN` for a personal, project or group access token
+ * the CI job, `Authorization: Bearer` for an OAuth access token (64
+ * hexadecimal characters, the token of `glab auth login`), `PRIVATE-TOKEN`
+ * for a personal, project or group access token
  *
  * @param token - The token of the request
  * @param env - The environment to read `CI_JOB_TOKEN` from, `process.env` by default
@@ -31,8 +43,12 @@ export function isGitlabJobToken(token: string, env: NodeJS.ProcessEnv = process
  * ```
  */
 export function getGitlabAuthHeader(token: string, env: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  return isGitlabJobToken(token, env)
-    ? { 'JOB-TOKEN': token }
+  if (isGitlabJobToken(token, env)) {
+    return { 'JOB-TOKEN': token }
+  }
+
+  return isGitlabOAuthToken(token)
+    ? { Authorization: `Bearer ${token}` }
     : { 'PRIVATE-TOKEN': token }
 }
 

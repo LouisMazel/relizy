@@ -93,6 +93,7 @@ describe('Given the relizy MCP server', () => {
         'search_docs',
         'get_doc',
         'check_migration',
+        'list_staged_versions',
       ])
       expect(tools.map(tool => tool.name)).toEqual(TOOLS.map(tool => tool.name))
 
@@ -101,7 +102,7 @@ describe('Given the relizy MCP server', () => {
         expect(tool.description!.length).toBeGreaterThan(100)
       }
 
-      expect(tools.filter(tool => tool.annotations?.openWorldHint).map(tool => tool.name)).toEqual(['preview_release', 'preview_changelog'])
+      expect(tools.filter(tool => tool.annotations?.openWorldHint).map(tool => tool.name)).toEqual(['preview_release', 'preview_changelog', 'list_staged_versions'])
     })
   })
 

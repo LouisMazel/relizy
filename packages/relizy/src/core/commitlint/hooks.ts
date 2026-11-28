@@ -9,8 +9,8 @@ import { getGitPath, runGitSync, tryGitSync } from '@relizy/core'
 
 export interface InstalledHook {
   path: string
-  /** `kept`: another hook exists, left as is without `force` */
-  status: 'created' | 'replaced' | 'unchanged' | 'kept'
+  /** `kept`: another hook exists, left as is without `force`; `added`: `relizy commitlint` added at the end of another hook (`add`) */
+  status: 'created' | 'replaced' | 'unchanged' | 'kept' | 'added'
   /** The hook relizy wrote in `.git/hooks` before husky or `core.hooksPath`, removed */
   removed?: string
 }
@@ -120,12 +120,57 @@ export function findOtherCommitMsgHook(cwd: string): string | undefined {
   }
 }
 
+/** Another linter of the commit messages: relizy commitlint is not added next to it */
+const OTHER_COMMIT_LINTERS = /\b(?:commitlint|commitizen|git-cz|cz|validate-commit-msg|commit-msg-linter|gitlint|conventional-pre-commit|cocogitto|cog|gitmoji)\b/
+
+/**
+ * True when `relizy commitlint` can be added at the end of this hook: a plain
+ * shell script (husky hooks have no shebang), that neither runs another linter
+ * of the commit messages nor ends before its last line (`exec`, `exit`)
+ */
+export function canAddToCommitMsgHook(content: string): boolean {
+  const [first = ''] = content.split('\n')
+  if (first.startsWith('#!') && !/^#!\s*(?:\/usr\/bin\/env\s+|\/(?:usr\/)?bin\/)(?:sh|bash|zsh|dash)\b/.test(first)) {
+    return false
+  }
+
+  const commands = content.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'))
+  if (commands.some(line => /(?:^|[;&|({]\s*|\b(?:then|do|else)\s+)(?:exec|exit)\b/.test(line))) {
+    return false
+  }
+
+  return !OTHER_COMMIT_LINTERS.test(commands.join('\n'))
+}
+
+/**
+ * The other `commit-msg` hook (see `findOtherCommitMsgHook`) when `relizy
+ * commitlint` can be added to it (see `canAddToCommitMsgHook`), relative to the
+ * root of the repository
+ */
+export function findExtensibleCommitMsgHook(cwd: string): string | undefined {
+  const other = findOtherCommitMsgHook(cwd)
+  if (!other) {
+    return undefined
+  }
+
+  try {
+    const { path } = getCommitMsgHookPath(cwd)
+    return canAddToCommitMsgHook(readFileSync(path, 'utf8'))
+      ? other
+      : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
 /**
  * Write the `commit-msg` hook running `relizy commitlint`: in `.husky/` when
  * husky is set up, otherwise in the hooks directory of git. Another hook is
- * only replaced with `force`, else kept (`kept`).
+ * only replaced with `force`, completed with `add` when it can be (`added`, see
+ * `canAddToCommitMsgHook`), else kept (`kept`).
  */
-export function installCommitMsgHook({ cwd, force = false }: { cwd: string, force?: boolean }): InstalledHook {
+export function installCommitMsgHook({ cwd, force = false, add = false }: { cwd: string, force?: boolean, add?: boolean }): InstalledHook {
   const { path, husky } = getCommitMsgHookPath(cwd)
   const content = husky
     ? `${COMMIT_MSG_HOOK_COMMAND}\n`
@@ -139,6 +184,21 @@ export function installCommitMsgHook({ cwd, force = false }: { cwd: string, forc
       return {
         path,
         status: 'unchanged',
+        ...(removed && { removed }),
+      }
+    }
+    if (add && !force && canAddToCommitMsgHook(existing)) {
+      // A hook of git, not versioned: the commits pass while relizy is not installed, as the hook relizy writes there
+      const line = husky
+        ? COMMIT_MSG_HOOK_COMMAND
+        : `if [ -e node_modules/.bin/relizy ]; then ${COMMIT_MSG_HOOK_COMMAND}; fi`
+      writeFileSync(path, `${existing}${existing.endsWith('\n') || !existing
+        ? ''
+        : '\n'}${line}\n`)
+      const removed = removeStaleGitHook(cwd, path)
+      return {
+        path,
+        status: 'added',
         ...(removed && { removed }),
       }
     }

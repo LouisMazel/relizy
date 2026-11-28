@@ -36,18 +36,20 @@ function readPackageManagerField(cwd: string, debug: (message: string) => void):
   return undefined
 }
 
-const LOCK_FILES: Record<PackageManager, string> = {
-  pnpm: 'pnpm-lock.yaml',
-  yarn: 'yarn.lock',
-  npm: 'package-lock.json',
-  bun: 'bun.lockb',
-}
+// In the order they are checked: `bun.lock` is the text lockfile of bun 1.2 and later
+const LOCK_FILES: [PackageManager, string][] = [
+  ['pnpm', 'pnpm-lock.yaml'],
+  ['yarn', 'yarn.lock'],
+  ['npm', 'package-lock.json'],
+  ['bun', 'bun.lockb'],
+  ['bun', 'bun.lock'],
+]
 
 function readLockFileManager(cwd: string, debug: (message: string) => void): PackageManager | undefined {
-  for (const [manager, file] of Object.entries(LOCK_FILES)) {
+  for (const [manager, file] of LOCK_FILES) {
     if (existsSync(join(cwd, file))) {
       debug(`Detected package manager from lockfile: ${manager}`)
-      return manager as PackageManager
+      return manager
     }
   }
 
@@ -57,7 +59,7 @@ function readLockFileManager(cwd: string, debug: (message: string) => void): Pac
 /**
  * The package manager a project declares: the `packageManager` field of its
  * `package.json`, else its lockfile (`pnpm-lock.yaml`, `yarn.lock`,
- * `package-lock.json`, `bun.lockb`, checked in that order). Undefined when it
+ * `package-lock.json`, `bun.lockb`, `bun.lock`, checked in that order). Undefined when it
  * has neither, where `detectPackageManager` falls back to the user agent and to `npm`.
  *
  * @param cwd - Directory of the project (default: the current directory)

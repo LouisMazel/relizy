@@ -19,19 +19,64 @@ const STEP_TEXTS: Partial<Record<ReleasePreview['steps'][number]['name'], string
   'commit-and-tag': 'commit',
   'push': 'push',
   'provider-release': 'create the GitHub/GitLab releases',
+  'approve': 'approve the staged versions with one 2FA (never in CI: approve later with `relizy stage approve` there)',
   'social': 'post on the social networks',
   'sync': 'merge the released branch into the branches of the rules of sync that match it',
   'pr-comment': 'comment the pull request',
+}
+
+/** The publish step: publishes, stages, or both */
+function publishText(preview: ReleasePreview): string {
+  const packages = preview.sets.flatMap(set => set.packages).filter(pkg => pkg.publish)
+  const staged = packages.filter(pkg => pkg.publish!.staged).length
+  if (staged === 0) {
+    return STEP_TEXTS.publish!
+  }
+  return staged === packages.length
+    ? 'stage on npm (not installable until approved)'
+    : 'publish to npm and stage the versions to approve'
 }
 
 /** Steps of `relizy release` after the bump, as configured */
 function releaseSteps(preview: ReleasePreview): string {
   return preview.steps
     .filter(step => step.enabled && STEP_TEXTS[step.name])
-    .map(step => step.name === 'commit-and-tag' && preview.tags.length > 0
-      ? 'commit, tag'
-      : STEP_TEXTS[step.name])
+    .map((step) => {
+      if (step.name === 'commit-and-tag' && preview.tags.length > 0) {
+        return 'commit, tag'
+      }
+      return step.name === 'publish'
+        ? publishText(preview)
+        : STEP_TEXTS[step.name]
+    })
     .join(', ')
+}
+
+/** The steps whose option is on but that do nothing in this release, with why: `Skipped: social posts (no platform enabled).` */
+function skippedSteps(preview: ReleasePreview): string[] {
+  return preview.steps
+    .filter(step => !step.enabled && step.reason)
+    .map(step => `Skipped: ${step.label.toLowerCase()} (${step.reason}).`)
+}
+
+/** With `publish.staged`: which versions are staged and which are published directly, with their dist-tag */
+function describeStaging(set: PreviewSet): string[] {
+  const packages = set.packages.filter(pkg => pkg.publish)
+  if (packages.length === 0) {
+    return []
+  }
+  const list = (staged: boolean) => packages.filter(pkg => pkg.publish!.staged === staged).map(pkg => `${code(pkg.name.concat('@', pkg.newVersion))} (${pkg.publish!.distTag})`)
+  const staged = list(true)
+  const direct = list(false)
+  return [
+    ...(staged.length > 0
+      ? [`Staged, awaiting approval: ${staged.join(', ')}`]
+      : []),
+    ...(direct.length > 0
+      ? [`Published directly: ${direct.join(', ')}`]
+      : []),
+    '',
+  ]
 }
 
 function describeSet(set: PreviewSet, { full, from }: { full: boolean, from?: string }): string[] {
@@ -70,6 +115,8 @@ function describeSet(set: PreviewSet, { full, from }: { full: boolean, from?: st
     lines.push(`Not released (no relevant commit nor bumped dependency): ${codeList(set.notReleased)}`, '')
   }
 
+  lines.push(...describeStaging(set))
+
   return lines
 }
 
@@ -84,6 +131,7 @@ function describeNextSteps(preview: ReleasePreview): string[] {
       : 'none (`release.gitTag` is off)'}`,
     '',
     `\`relizy release\` would then ${releaseSteps(preview)}.`,
+    ...skippedSteps(preview),
     '',
     'Next: `preview_changelog` with the same arguments for the changelogs. To release, ask the user first: `relizy release --dry-run` shows every step, then `relizy release` (usually run by the CI).',
   ]

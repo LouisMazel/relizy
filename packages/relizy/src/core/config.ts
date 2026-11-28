@@ -1,12 +1,12 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, HookConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, SyncConfig, SyncRule, TeamsCardsMode } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, HookConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, StagedPublishing, SyncConfig, SyncRule, TeamsCardsMode } from '../types'
 import { extname, isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
-import { getEnvNpmToken, getGhCliToken, getRepoConfig, isInCI, redactSecrets, resolveRepoConfig } from '@relizy/core'
+import { getEnvNpmToken, getGhCliToken, getGlabCliToken, getRepoConfig, isInCI, redactSecrets, resolveRepoConfig } from '@relizy/core'
 
 import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
@@ -78,6 +78,8 @@ export function getDefaultConfig(cwd = process.cwd()) {
       // config type stays assignable to true when overridden by config/CLI.
       skipExistingVersions: false as boolean,
       checkWorkspaceDependencies: true as boolean,
+      staged: false as StagedPublishing,
+      approve: 'prompt' as 'prompt' | boolean,
       packageManager: detectPackageManager(cwd),
     } satisfies PublishConfig,
     tokens: {
@@ -288,6 +290,39 @@ function assertValidSyncRules(config: ResolvedConfig): void {
   })
 }
 
+/**
+ * `publish.staged` is `true`, `false` or `{ tags, packages }` with at least
+ * one list of non-empty strings: an empty object would stage everything by
+ * mistake
+ */
+function assertValidStaged(config: ResolvedConfig): void {
+  const staged: unknown = config.publish?.staged
+  const forms = 'publish.staged must be true, false or { tags: [\'latest\'], packages: [\'@scope/*\'] } (at least one of the two lists)'
+
+  if (staged === undefined || typeof staged === 'boolean') {
+    return
+  }
+
+  if (typeof staged !== 'object' || staged === null || Array.isArray(staged)) {
+    throw new ConfigOptionError('publish.staged', forms)
+  }
+
+  const { tags, packages, ...rest } = staged as Record<string, unknown>
+  const isList = (value: unknown) => Array.isArray(value) && value.length > 0 && value.every(item => typeof item === 'string' && item.length > 0)
+
+  if (Object.keys(rest).length > 0 || (tags === undefined && packages === undefined) || (tags !== undefined && !isList(tags)) || (packages !== undefined && !isList(packages))) {
+    throw new ConfigOptionError('publish.staged', forms)
+  }
+}
+
+/** `publish.approve` is `'prompt'`, `true` or `false` */
+function assertValidApprove(config: ResolvedConfig): void {
+  const approve: unknown = config.publish?.approve
+  if (approve !== undefined && approve !== 'prompt' && typeof approve !== 'boolean') {
+    throw new ConfigOptionError('publish.approve', 'publish.approve must be \'prompt\', true or false')
+  }
+}
+
 function setupLogger(logLevel?: LogLevel) {
   if (logLevel) {
     logger.setLevel(logLevel)
@@ -325,6 +360,14 @@ async function resolveConfig(
     config.tokens.github = getGhCliToken(config.repo.domain)
     if (config.tokens.github) {
       logger.debug('GitHub token: the one of the GitHub CLI (gh auth token)')
+    }
+  }
+
+  // A local run without GITLAB_TOKEN: the token of the GitLab CLI, when it is logged in
+  if (config.tokens && !config.tokens.gitlab && config.repo?.provider === 'gitlab' && !isInCI()) {
+    config.tokens.gitlab = getGlabCliToken(config.repo.domain)
+    if (config.tokens.gitlab) {
+      logger.debug('GitLab token: the one of the GitLab CLI (glab config get token)')
     }
   }
 
@@ -617,6 +660,8 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   assertNoRemovedOptions(results.config)
   assertValidTagBody(results.config)
   assertValidSyncRules(results.config)
+  assertValidStaged(results.config)
+  assertValidApprove(results.config)
   validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))

@@ -126,6 +126,23 @@ function describeAgents(cwd: string): string[] {
   return []
 }
 
+/** What `publish.staged` and `publish.approve` do, the auth mode aside (it depends on where the run happens) */
+function describeStaged(config: Awaited<ReturnType<typeof loadProjectConfig>>): string {
+  const { staged, approve } = config.publish
+  if (!staged) {
+    return 'off, the versions are published directly (`publish.staged`)'
+  }
+  const what = staged === true
+    ? 'every version except canaries'
+    : [staged.tags && `the dist-tags ${codeList(staged.tags)}`, staged.packages && `the packages ${codeList(staged.packages)}`].filter(Boolean).join(' of ')
+  const approval = approve === false
+    ? 'approved later (`relizy stage approve`, npmjs.com)'
+    : approve === true
+      ? 'approved by `relizy release` without asking, with one 2FA, outside CI'
+      : 'approved by `relizy release` after a question, with one 2FA, outside CI'
+  return `on npmjs, ${what} staged, not installable until ${approval}. Check \`list_staged_versions\` before saying a release is out`
+}
+
 export async function getProject(context: ServerContext, { config: configName }: { config?: string }): Promise<string> {
   const config = await loadProjectConfig({ config: configName, cwd: context.cwd })
   const sets = readPackageSets(config)
@@ -143,6 +160,7 @@ export async function getProject(context: ServerContext, { config: configName }:
     `- **Version mode:** ${modes}`,
     `- **Git:** ${await describeGit(config)}`,
     `- **Steps of \`relizy release\`:** ${describeSteps(config)}`,
+    `- **Staged publishing:** ${describeStaged(config)}`,
     ...sets.flatMap(set => [
       '',
       ...describeSet(set, config.cwd),
