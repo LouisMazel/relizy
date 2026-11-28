@@ -2,6 +2,7 @@ import type { ReleaseReport, ReleaseStepReport, ResolvedRelizyConfig, SyncSource
 import type { StepCheck } from '../core/events'
 import type { AIRewrite, ReleaseLink } from '../core/progress'
 import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult, SyncResult } from '../types'
+import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, filterOutPrivatePackages, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
@@ -15,6 +16,7 @@ import { takeReleaseFacts } from '../core/progress'
 import { runTrustedPublishingPreflight } from '../core/publish-checks'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish, isAwaitingApproval } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
+import { describeResumeHint } from '../core/resume-hint'
 import { describePublishOutcome, getPublishStepLabel, getStagedVersions, getStagingShare, isStagingConfigured, markStagedExplicit } from '../core/staging'
 import { getBumpStepData, getProviderReleaseStepData, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
 import { bump } from './bump'
@@ -498,6 +500,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   takeReleaseFacts()
   // The step running when the release fails
   let currentStep = 'Checks'
+  // The versions published or staged by the run, for the hint of a failure
+  let publishedCount = 0
 
   // Known once the bump is done, for the hooks of the next steps
   let hookContext: HookContext | undefined
@@ -779,7 +783,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
             : 'Nothing to publish'
         },
         data: () => takePublishStepData(config, { dryRun }),
-        failedData: () => takePublishStepData(config, { dryRun }),
+        failedData: () => {
+          const data = takePublishStepData(config, { dryRun })
+          publishedCount = data.packages.filter(pkg => pkg.status === 'published' || pkg.status === 'staged').length
+          return data
+        },
         run: async () => {
           // Packages are published before the push: make sure the release commit
           // will be pushable, as new commits may have landed while the release ran.
@@ -857,6 +865,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       ? describePublishOutcome(publishResponse.publishedPackages, 'Published')
       : describePublished(publishResponse.publishedPackages)))
     if (publishResponse) {
+      publishedCount = publishResponse.publishedPackages.length
       facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages, staged })
       // No page for a staged version: it is not on npm until approved
       links.push(...getNpmLinks({
@@ -1177,6 +1186,16 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
     writeReleaseReport({ config, report })
     ui.fail(error, currentStep, report)
+
+    const hint = !dryRun && describeResumeHint({
+      failedStep: currentStep,
+      published: publishedCount,
+      startCommit,
+      githubActions: Boolean(process.env.GITHUB_ACTIONS),
+    })
+    if (hint) {
+      logger.warn(hint)
+    }
 
     throw error
   }

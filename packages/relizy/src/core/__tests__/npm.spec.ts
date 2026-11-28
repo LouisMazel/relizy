@@ -1833,7 +1833,7 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       }).catch((error: Error) => error)
 
-      expect((error as Error).message).toMatchInlineSnapshot(`"Version test-package@1.0.1 already exists on the registry and cannot be overwritten. This usually happens when re-running a release on the same commit (e.g. a canary rerun), or after a release that published this version but failed to push its release commit (merge its tag into your branch to recover). Enable publish.skipExistingVersions (or pass --skip-existing-versions) to skip already-published versions instead of failing."`)
+      expect((error as Error).message).toMatchInlineSnapshot(`"Version test-package@1.0.1 already exists on the registry and cannot be overwritten. This usually happens when re-running a release on the same commit (e.g. a canary rerun), or after a release that published this version but failed to push its release commit (merge its tag into your branch to recover). Enable publish.skipExistingVersions (or pass --skip-existing-versions) to skip already-published versions instead of failing, only when re-running the release from the same commit: https://relizy.dev/guide/resume-a-release"`)
     })
 
     it('Then skips the package without throwing when skipExistingVersions is enabled', async () => {
