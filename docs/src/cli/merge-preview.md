@@ -53,7 +53,7 @@ Give it the options of the release job that change the release: the preview of `
 | `--commitlint`, `--no-commitlint`                        | Lint the commits of the pull request, as warnings, or not. Off by default                                        | [`mergePreview.commitlint`](./../config/merge-preview.md#commitlint)  |
 | `--report-json <file>`, `--report-markdown <file>`       | Write the report of the preview, or its markdown, to this file                                                   | [`release.report`](./../config/release.md#report)                     |
 
-The [global options](./commands.md) apply: `--config`, `--group`, `--pr-number` (the pull request to comment, when relizy cannot find it), `--log-level`.
+The [global options](./commands.md) apply: `--config`, `--group`, `--pr-number` (the pull request to comment: when relizy cannot find it, or outside its pipeline, see [Outside the pipeline](./../guide/merge-preview.md#outside-the-pipeline)), `--log-level`.
 
 ## Examples
 
@@ -66,6 +66,9 @@ relizy merge-preview --prerelease --preid beta --tag beta
 
 # Locally: the next release of the current branch, in the terminal
 relizy merge-preview --no-comment
+
+# Locally: comment the pull request #42, checked out at its last commit
+relizy merge-preview --pr-number 42
 ```
 
 ## See Also
