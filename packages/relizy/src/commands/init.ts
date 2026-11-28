@@ -577,8 +577,35 @@ function isIgnoredBuildsError(error: unknown): boolean {
   return text.includes('ERR_PNPM_IGNORED_BUILDS')
 }
 
-/** Never throws: a failed install tells the command to run */
-async function installRelizy(cwd: string, command: string): Promise<void> {
+/** The scripts without the `prepare` script, which runs relizy at each install */
+function withoutRelizyRuns(scripts: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(scripts).filter(([name]) => name !== 'prepare'))
+}
+
+/** The message of an error */
+function describeInstallError(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : String(error)
+}
+
+function runInstall(cwd: string, command: string): Promise<unknown> {
+  return execPromise(command, {
+    cwd,
+    noStdout: true,
+    noStderr: true,
+    noSuccess: true,
+  })
+}
+
+/**
+ * Installs relizy, never throws: a failed install tells the command to run.
+ * pnpm stopping on build scripts of other dependencies awaiting approval
+ * (`strictDepBuilds`): relizy has none, the install runs again without
+ * stopping on them (they stay unapproved, never run). Returns whether relizy
+ * is installed.
+ */
+async function installRelizy(cwd: string, command: string): Promise<boolean> {
   // Without terminal (CI), a spinner writes each of its frames
   const progress = process.stdout.isTTY
     ? spinner()
@@ -586,35 +613,43 @@ async function installRelizy(cwd: string, command: string): Promise<void> {
   progress.start(`Installing relizy (${command})`)
   const snapshot = snapshotFiles(cwd, INSTALL_FILES)
 
+  // A failed install may have written relizy in the package.json and the lockfile: undone, nothing half installed
+  let ignoredBuilds = false
+  const fail = (error: unknown): false => {
+    let restored = ''
+    try {
+      restoreFiles(cwd, snapshot)
+    }
+    catch (restoreError) {
+      restored = `, package.json and pnpm-lock.yaml could not be restored (${describeInstallError(restoreError)}): remove relizy from them`
+    }
+    const next = ignoredBuilds
+      ? `run "pnpm approve-builds", then "${command}"`
+      : `run ${command}`
+    progress.error(`relizy not installed - ${describeInstallError(error)}${restored} (${next})`)
+    return false
+  }
+
   try {
-    await execPromise(command, {
-      cwd,
-      noStdout: true,
-      noStderr: true,
-      noSuccess: true,
-    })
+    await runInstall(cwd, command)
     progress.stop('Installed relizy')
+    return true
   }
   catch (error) {
-    if (isIgnoredBuildsError(error)) {
-      // pnpm already wrote relizy in the package.json and the lockfile: undone, nothing half installed
-      let restored = 'package.json and pnpm-lock.yaml restored'
-      try {
-        restoreFiles(cwd, snapshot)
-      }
-      catch (restoreError) {
-        restored = `package.json and pnpm-lock.yaml could not be restored (${restoreError instanceof Error
-          ? restoreError.message
-          : String(restoreError)}): remove relizy from them`
-      }
-      progress.error(`relizy not installed - pnpm stopped on build scripts of dependencies of the project awaiting approval (ERR_PNPM_IGNORED_BUILDS), ${restored}: run "pnpm approve-builds", then "${command}"`)
-      return
+    if (!isIgnoredBuildsError(error)) {
+      return fail(error)
     }
+    ignoredBuilds = true
+  }
 
-    const message = error instanceof Error
-      ? error.message
-      : String(error)
-    progress.error(`relizy not installed - ${message} (run ${command})`)
+  try {
+    await runInstall(cwd, `${command} --config.strict-dep-builds=false`)
+    progress.stop('Installed relizy')
+    log.warn('Build scripts of other dependencies of the project await the approval of pnpm (relizy has none): run "pnpm approve-builds", "pnpm install" stops on them until then')
+    return true
+  }
+  catch (error) {
+    return fail(error)
   }
 }
 
@@ -1322,6 +1357,15 @@ async function runInit({ options, detection, configFile, interactive }: {
   if (plan.replacedFile) {
     rmSync(join(cwd, plan.replacedFile))
   }
+
+  // First: the prepare script, the hook and the MCP server of the agents run the installed relizy
+  const installed = plan.install
+    ? await installRelizy(cwd, plan.install)
+    : true
+  const written = installed
+    ? plan.scripts
+    : withoutRelizyRuns(plan.scripts)
+
   if (config) {
     writeFileSync(configFile, content)
     log.success(`Created ${relative(cwd, configFile)}`)
@@ -1331,12 +1375,15 @@ async function runInit({ options, detection, configFile, interactive }: {
     }
   }
 
-  if (Object.keys(plan.rootFields).length > 0 || scripts.length > 0) {
-    updateRootPackageJson({ cwd, fields: plan.rootFields, scripts: plan.scripts })
+  if (Object.keys(plan.rootFields).length > 0 || Object.keys(written).length > 0) {
+    updateRootPackageJson({ cwd, fields: plan.rootFields, scripts: written })
     log.success('Updated package.json')
   }
+  if (!installed && (plan.hook || 'prepare' in plan.scripts)) {
+    log.warn(`relizy is not installed: the commit-msg hook and the prepare script are not written, they would stop the commits and "${detection.packageManager} install" - install relizy, then run "npx relizy init" again`)
+  }
 
-  const installedHook = plan.hook
+  const installedHook = plan.hook && installed
     ? installHook(cwd, hook)
     : undefined
   if (installedHook) {
@@ -1351,11 +1398,6 @@ async function runInit({ options, detection, configFile, interactive }: {
     if (installedHook.removed) {
       log.success(`Removed the old commit-msg hook, no longer run (${relative(cwd, installedHook.removed)})`)
     }
-  }
-
-  // Before the agents: their MCP server starts the installed relizy
-  if (plan.install) {
-    await installRelizy(cwd, plan.install)
   }
 
   const agentsResult = plan.agents.length > 0
