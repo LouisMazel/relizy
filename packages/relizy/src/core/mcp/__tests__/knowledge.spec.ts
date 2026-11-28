@@ -299,7 +299,7 @@ describe('Given the docs bundle generated from the sources', () => {
     it('Then it has its page in the docs', () => {
       const commands = [
         // `program.command('bump')`, and the groups of commands: `const mcp = program.command('mcp')`
-        ...readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8').matchAll(/^(?:const \w+ = )?program\n {2}\.command\('([a-z-]+)'/gm),
+        ...readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8').matchAll(/^(?:const \w+ = )?program\n {2}\.command\('([a-z-]+)[' ]/gm),
       ].map(match => match[1]!)
       const pages = commands.map(command => command === 'commitlint'
         ? 'commitlint/cli'
@@ -339,8 +339,10 @@ describe('Given the docs bundle generated from the sources', () => {
 function getCliFlags(): Record<string, string[]> {
   const source = readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8')
   const commands = [
-    ...source.matchAll(/\.command\('([a-z-]+)'/g),
+    ...source.matchAll(/\.command\('([a-z-]+)[' ]/g),
   ]
+  // The subcommands of relizy stage
+  const STAGE_SUBCOMMANDS = new Set(['list', 'approve', 'reject'])
   // The options shared by several commands: `function slackFormatOption() { return new Option('--slack-format...`
   const sharedOptions = [
     ...source.matchAll(/function (\w+Option)\(\) \{\n {2}return new Option\('(--[a-z-]+)/g),
@@ -372,7 +374,9 @@ function getCliFlags(): Record<string, string[]> {
         // The subcommands of relizy merge-preview: run (the default one) and init
         : name === 'run' || previous === 'run'
           ? 'cli/merge-preview'
-          : `cli/${name}`
+          : STAGE_SUBCOMMANDS.has(name) && (previous === 'stage' || STAGE_SUBCOMMANDS.has(previous ?? ''))
+            ? 'cli/stage'
+            : `cli/${name}`
 
     pages[page] = [
       ...new Set([

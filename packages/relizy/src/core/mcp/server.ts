@@ -15,6 +15,7 @@ import { getConfigOptionTool } from './tools/get-config-option'
 import { getDocTool } from './tools/get-doc'
 import { getProjectTool } from './tools/get-project'
 import { lintCommitTool } from './tools/lint-commit'
+import { listStagedVersionsTool } from './tools/list-staged-versions'
 import { previewChangelogTool } from './tools/preview-changelog'
 import { previewReleaseTool } from './tools/preview-release'
 import { searchDocsTool } from './tools/search-docs'
@@ -30,6 +31,7 @@ export const TOOLS: ToolDefinition[] = [
   searchDocsTool,
   getDocTool,
   checkMigrationTool,
+  listStagedVersionsTool,
 ]
 
 export async function runTool(context: ServerContext, tool: ToolDefinition, args: unknown): Promise<CallToolResult> {
