@@ -929,7 +929,10 @@ describe('Given the terminal output', () => {
       dryRun: false,
       cwd,
     })
-    trustUi.complete({ message: 'Trusted publishing set up for 1 package', warnings: ['Run "relizy trust" again before the next release'] })
+    trustUi.complete({
+      message: 'Trusted publishing set up for 1 package',
+      warnings: ['Run "relizy trust" again before the next release'],
+    })
     expect(clack.note).toHaveBeenLastCalledWith('Run "relizy trust" again before the next release', expect.stringContaining('Warning'))
   })
 
