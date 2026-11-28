@@ -34,20 +34,21 @@ On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the insta
 - **Shallow clone**: the full history and the tags are fetched (`git fetch --unshallow --tags`), as the versions and the changelogs need every commit since the last release. `fetch-depth: 0` (GitHub) or `GIT_DEPTH: 0` (GitLab) only saves this fetch.
 - **Detached HEAD**: GitLab CI and others check out the commit. Relizy checks out the branch of the job (the source branch of a merge request), tracking the remote one, so the release commit can be pushed and the branch checked against the remote.
 - **Git identity**: without `user.name` and `user.email` in the git config of the job, nor `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, the release commit and the tags are made by the person who started the release, with the noreply email their provider links to their profile (`12446546+octocat@users.noreply.github.com`, `42-jdoe@users.noreply.gitlab.com`). A bot, an access token, or a CI that does not tell, gets `relizy[bot] <noreply@relizy.dev>`. Set the git config or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables to choose another identity.
-- **npm token**: Relizy writes it to a temporary `.npmrc` of the project (restored right after) for npm, pnpm and bun, and checks it (`whoami`, npm and pnpm) before the bump. Nothing to write by hand.
+- **npm token**: Relizy writes it to a temporary `.npmrc` of the project (restored right after) for npm, pnpm and bun, and checks it (`whoami`, npm and pnpm) before the bump. Nothing to write by hand. Without token, a job that can get an ID token publishes with [trusted publishing](./trusted-publishing.md), and Relizy checks before the bump that npm trusts it.
+- **Staged versions**: with [`publish.staged`](./../config/publish.md#staged), the release stages the versions, and never approves them: npm only approves with an interactive 2FA. The release succeeds, lists what awaits approval and gives the [outputs](./staged-publishing.md#releases-from-a-ci). Approve from your machine with `relizy stage approve --all`.
 - **Push access**: before publishing anything, Relizy checks that the release commit and the tags can be pushed (`git push --dry-run`), as a push failing after the publish would leave versions on the registry without their commit nor their tags. A dry run checks it too, except on a pull request, see [The Push Is Refused](#the-push-is-refused). On GitLab, it pushes with `GITLAB_TOKEN` when the job token cannot. The rules of protected branches are only checked by the real push: see [Protected Branches](#protected-branches).
 - **Git flow**: after a release from `main`, a rule of `sync.rules` merges it into `develop` (or opens a pull request), with the same push access: see [Branch Sync](./branch-sync.md).
 - **Concurrent pushes**: commits pushed to the branch during the release are handled, see [Branch Safety](./../cli/release.md#branch-safety). The dry run of a pull request whose branch received new commits after it started only warns: the run of the latest commit previews the release with them.
 
 ## Tokens
 
-| Needed for                        | Variable read by Relizy                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------ |
-| npm publish                       | `RELIZY_NPM_TOKEN`, or none with [trusted publishing](./trusted-publishing.md) |
-| GitHub release, PR comment        | `GITHUB_TOKEN`                                                                 |
-| GitLab release, MR comment, push  | `GITLAB_TOKEN`                                                                 |
-| [Social posts](./social-media.md) | `RELIZY_TWITTER_*`, `RELIZY_SLACK_TOKEN`                                       |
-| [AI rewrites](./ai-changelog.md)  | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN` or `RELIZY_ANTHROPIC_API_KEY`                 |
+| Needed for                        | Variable read by Relizy                                                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| npm publish                       | `RELIZY_NPM_TOKEN`, or none with [trusted publishing](./trusted-publishing.md) (a token cannot publish directly after January 2027, see [Moving off npm tokens](./npm-token-migration.md)) |
+| GitHub release, PR comment        | `GITHUB_TOKEN`                                                                                                                                                                             |
+| GitLab release, MR comment, push  | `GITLAB_TOKEN`                                                                                                                                                                             |
+| [Social posts](./social-media.md) | `RELIZY_TWITTER_*`, `RELIZY_SLACK_TOKEN`                                                                                                                                                   |
+| [AI rewrites](./ai-changelog.md)  | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN` or `RELIZY_ANTHROPIC_API_KEY`                                                                                                                             |
 
 Every variable has aliases (`NPM_TOKEN`, `NODE_AUTH_TOKEN`, `GH_TOKEN`...): see [Tokens](./../config/overview.md#tokens). The secrets to create on each CI are listed in [GitHub Actions](./github-actions.md#secrets-and-permissions) and [GitLab CI](./gitlab-ci.md#ci-cd-variables).
 
@@ -127,7 +128,11 @@ A branch requiring pull requests or status checks rejects the push of the releas
 ### npm Publish Fails
 
 - **Authentication**: the token check before the bump fails. Check the secret is passed to the step, as `RELIZY_NPM_TOKEN` or `NPM_TOKEN`, and that the token can publish the packages. Or publish without token: [trusted publishing](./trusted-publishing.md).
-- **E404 with trusted publishing**: the package is not on npm yet (publish its first version with a token), or its trusted publisher does not match the repository, the workflow file or the environment of the job.
+- **E404 with trusted publishing**: the package is not on npm yet (trusted publishing cannot create a package: publish its first version from your machine, or with a token, then run `relizy trust`), or its trusted publisher does not match the repository, the workflow file or the environment of the job.
+- **Trusted publishing warnings before the bump**: npm does not trust the job for a package (the package, the repository, the calling workflow and the fixes are listed), the package is not on npm yet, or the runner is not supported (GitHub self-hosted runners, GitLab self-managed). They are warnings: the run goes on. See [What Relizy Checks](./trusted-publishing.md#what-relizy-checks).
+- **`ENEEDAUTH` with trusted publishing**: npm did not trust the job, whatever its message says. Check the trusted publisher of the package with `relizy trust`.
+- **E_STAGE_REQUIRED**: npm only accepts a staged version from this token or this trusted publisher. Stage the version (`--staged`), or allow direct publishing. See [Troubleshooting staged publishing](./staged-publishing.md#troubleshooting).
+- **Warning about January 2027**: a direct publish with a granular token. See [Moving off npm tokens](./npm-token-migration.md). `--no-safety-check` silences it.
 - **OTP required**: a CI cannot type a one-time password. Use a token allowed to publish without 2FA.
 - **Version already published**: a previous run published it but did not push. Follow the recovery printed by Relizy, or add `--skip-existing-versions`.
 

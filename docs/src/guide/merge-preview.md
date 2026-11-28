@@ -107,7 +107,7 @@ When only the merge will tell (several methods allowed), the preview computes bo
 
 The check fails, and the job exits with an error, only when the release of the merge would fail, or release a broken result. A major bump or a merge that releases nothing are normal outcomes: they never fail it.
 
-- **A version already published**: the new version of a package is already on its registry, the publish would fail. The registry is checked with the token of the job; when it cannot tell (a private registry without token), the preview only warns.
+- **A version already published**: the new version of a package is already on its registry, the publish would fail. The registry is checked with the token of the job; when it cannot tell (a private registry without token), the preview only warns. With [`publish.staged`](./../config/publish.md#staged), a planned version already staged and awaiting approval counts as taken too, and the problem names the fix: `relizy stage approve` or `relizy stage reject`. The staged versions are read with your npm login, so only outside a CI and without trusted publishing (a local preview, an application); in a CI the publish error stays the safety net, and a stage list that cannot be read never fails the preview.
 - **A tag already taken**: a tag of the release already exists on the remote, the push would fail.
 - **A squash commit that is not a Conventional Commit**: the release would ignore the changes of the pull request. Write its title as `type(scope): subject`.
 - **An error**: an invalid config, or a bump that cannot be computed.

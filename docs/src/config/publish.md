@@ -1,8 +1,8 @@
 ---
 title: Publish Configuration
-description: Reference of the publish options - package manager, registry, dist-tag, access, OTP, token, build command, several registries, safety check, idempotent reruns and the check of the workspace dependencies.
+description: Reference of the publish options - package manager, registry, dist-tag, access, OTP, token, build command, several registries, staged publishing and approval, safety check, idempotent reruns and the check of the workspace dependencies.
 metaDescription: 'Reference of the publish options: package manager, registry, dist-tag, access, OTP, token, build command, several registries and safety check.'
-keywords: publish config, npm publish, registry, dist-tag, access, otp, npm token, buildCmd, registries, packageFilter, exclusive, skipExistingVersions, checkWorkspaceDependencies, safetyCheckTimeout
+keywords: publish config, npm publish, staged publishing, staged, approve, registry, dist-tag, access, otp, npm token, buildCmd, registries, packageFilter, exclusive, skipExistingVersions, checkWorkspaceDependencies, safetyCheckTimeout
 category: Configuration
 tags: [config, publish, npm, registry]
 ---
@@ -65,7 +65,7 @@ One-time password of a registry with 2FA. Without it, relizy asks for one when t
 
 The registry token is [`tokens.registry`](./overview.md#tokens) (`RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN` by default, `--publish-token <token>` from the CLI), or the `token` of each of the [`registries`](#registries). It works for npm, pnpm and bun: Yarn reads its auth from `.yarnrc.yml`, configure it yourself.
 
-Without token, a GitHub Actions or GitLab CI job can publish to npmjs.org with [trusted publishing](./../guide/trusted-publishing.md) (OIDC): the safety check then checks the npm of the job instead of `whoami`.
+Without token, a GitHub Actions, GitLab CI or CircleCI job can publish to npmjs.org with [trusted publishing](./../guide/trusted-publishing.md) (OIDC): the safety check then checks the npm of the job and whether npm trusts it, instead of `whoami`. Granular tokens lose direct publishing in January 2027: see [Moving off npm tokens](./../guide/npm-token-migration.md).
 
 Relizy writes the token, with the `@scope:registry` of scoped packages, to the `.npmrc` of the project only during each `whoami` and `publish`, then restores the file as it was. Without token, only the `@scope:registry` line of a scoped package is written.
 
@@ -127,12 +127,51 @@ export default defineConfig({
 
 `exclusive` only removes the default registry: the other matching entries still apply. The publish stops at the first failure and is not transactional: a package already published to one registry is not unpublished when the next one fails.
 
+## staged
+
+- **Type:** `boolean | { tags?: string[], packages?: string[] }`
+- **Default:** `false`
+- **CLI:** `--staged`, `--no-staged`
+
+Upload the versions to the npm staging area instead of publishing them: a maintainer approves each one with 2FA before it is installable. See [Staged publishing](./../guide/staged-publishing.md).
+
+- `false`: publish directly.
+- `true`: stage every version, except the canaries.
+- `{ tags, packages }`: stage the versions that match every filter given. `tags` are dist-tags (`['latest']` stages the stable releases and publishes the prereleases directly), `packages` are names or globs (`['@scope/core', '@scope/plugin-*']`).
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    // Stable releases staged, prereleases published directly
+    staged: { tags: ['latest'] },
+  },
+})
+```
+
+A [canary](./../guide/prereleases.md#canary-releases) is staged only when `tags` lists its tag, or with `--staged` on its run: `true` never stages one. Only npmjs stages: another registry publishes directly, and Relizy says it once per run. In a [profile](./profiles.md), an object is merged with the one of the config (both filters apply): set the whole object, or a boolean, to replace it.
+
+## approve
+
+- **Type:** `'prompt' | boolean`
+- **Default:** `'prompt'`
+- **CLI:** `--approve`, `--no-approve`
+
+What `relizy release` (and `relizy publish` run alone) does with the versions it staged, once pushed. Only used when the run staged something.
+
+- `'prompt'`: ask in an interactive terminal (an application answers through `onPrompt`), then one 2FA for all the versions.
+- `true`: approve without asking. npm still asks for the code.
+- `false`: never. Approve later with [`relizy stage approve`](./../cli/stage.md) or on npmjs.com.
+
+Never in a CI, whatever the value: npm only approves with an interactive 2FA, never with a CI or OIDC token. The release succeeds and lists the versions awaiting approval.
+
 ## safetyCheck
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Before publishing, authenticate (`whoami`, npm and pnpm) against each registry the released packages need. `relizy release` checks it before the bump, for every package that can be published, and `relizy publish` for the packages it publishes: a registry scoped by `packageFilter` to other packages is not checked, the registry of your npm config is when a package goes there. Skipped with the global [`safetyCheck`](./overview.md#safetycheck) (`--no-safety-check`), and by `relizy release` when it does not publish (`release.publish: false`, `--no-publish`).
+Before publishing, check what each registry the released packages need will accept: the login or token (`whoami`, npm and pnpm), the npm that trusted publishing or a staged publish needs, whether npm trusts the job for each package published (warnings only), and the notes on tokens (direct publishing with a token ends in January 2027). Everything stays a warning when it cannot make the publish fail. `relizy release` checks it before the bump, for every package that can be published, and `relizy publish` for the packages it publishes: a registry scoped by `packageFilter` to other packages is not checked, the registry of your npm config is when a package goes there. Skipped with the global [`safetyCheck`](./overview.md#safetycheck) (`--no-safety-check`), and by `relizy release` when it does not publish (`release.publish: false`, `--no-publish`).
 
 ## safetyCheckTimeout
 

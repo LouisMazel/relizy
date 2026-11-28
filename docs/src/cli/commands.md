@@ -20,6 +20,8 @@ tags: [cli, commands, options, reference]
 | [`changelog`](./changelog.md)               | Write the `CHANGELOG.md` files                                                                |
 | [`publish`](./publish.md)                   | Publish the packages to the registry                                                          |
 | [`provider-release`](./provider-release.md) | Create the GitHub or GitLab releases                                                          |
+| [`stage`](./stage.md)                       | List, approve or reject the versions staged on npm, with one 2FA                              |
+| [`trust`](./trust.md)                       | Set up the npm trusted publishers of the packages, from the release workflow                  |
 | [`social`](./social.md)                     | Post the release on X (Twitter) and Slack                                                     |
 | [`sync`](./sync.md)                         | Merge the released branch into other branches (`main` into `develop`), or open pull requests  |
 | [`pr-comment`](./pr-comment.md)             | Post the release on its pull request or merge request                                         |
@@ -118,7 +120,7 @@ relizy pr-comment
 
 ## See Also
 
-- [release](./release.md), [bump](./bump.md), [changelog](./changelog.md), [publish](./publish.md), [provider-release](./provider-release.md)
+- [release](./release.md), [bump](./bump.md), [changelog](./changelog.md), [publish](./publish.md), [provider-release](./provider-release.md), [stage](./stage.md), [trust](./trust.md)
 - [social](./social.md), [sync](./sync.md), [pr-comment](./pr-comment.md), [merge-preview](./merge-preview.md), [init](./init.md), [mcp](./mcp.md), [commitlint](./../commitlint/cli.md)
 - [CI/CD](./../guide/ci-cd.md)
 - [Programmatic API](./../api/usage.md)

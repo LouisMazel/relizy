@@ -67,7 +67,7 @@ jobs:
 [`relizy/action`](https://github.com/relizy/action) does what a release job needs after the checkout:
 
 - **Setup**: your package manager (from the lockfile: pnpm, Yarn, Bun or npm), the Node version of `.nvmrc` or `.node-version` (else `lts/*`), with the cache of pnpm and npm, and the install from the lockfile. `setup: false` skips it, when the job already set up the project.
-- **npm**: updated to 11.5.1 or later when the job can publish with [trusted publishing](./trusted-publishing.md) (`id-token: write`).
+- **npm**: updated to npm 11 when it is older than 11.15.0 (staged publishing and [`relizy trust`](./../cli/trust.md) need it), whether or not the job can get an ID token for [trusted publishing](./trusted-publishing.md) (`id-token: write`). npm 11 runs on the Node of every project.
 - **AI rewrites**: the `claude` CLI, installed with `claude-code-oauth-token`.
 - **Relizy**: the version of your `package.json`, else the version of the action (`relizy-version` forces one).
 - **Release**: `relizy release --yes`, with the release type, the tokens and the `args` you give, and the [outputs](#outputs-and-summary) of the release.
@@ -105,8 +105,9 @@ steps:
       node-version-file: .nvmrc
       cache: pnpm
   - run: pnpm install --frozen-lockfile
-  # npm trusted publishing (OIDC) needs npm 11.5.1 or later: https://relizy.dev/guide/trusted-publishing
-  - run: npm install -g npm@latest
+  # npm trusted publishing (OIDC) needs npm 11.5.1 or later, staged publishing 11.15.0: https://relizy.dev/guide/trusted-publishing
+  - run: |
+      node -e "const [a, b] = process.argv[1].split('.').map(Number); process.exit(a > 11 || (a === 11 && b >= 15) ? 0 : 1)" "$(npm --version)" || npm install -g npm@11
   - id: release
     run: pnpm exec relizy release --yes ${{ inputs.release != 'auto' && format('--{0}', inputs.release) || '' }}
     env:
@@ -118,14 +119,14 @@ steps:
 
 Create the secrets in Settings > Secrets and variables > Actions. GitHub gives `GITHUB_TOKEN` to each run.
 
-| Secret                                                                                             | Input of the action (variable without it)                    | When                                                                     |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| (none)                                                                                             | `github-token`, by default (`GITHUB_TOKEN`)                  | Always                                                                   |
-| `NPM_TOKEN`                                                                                        | `npm-token` (`RELIZY_NPM_TOKEN`)                             | Publishing to npm, without [trusted publishing](./trusted-publishing.md) |
-| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | `twitter-api-key`... (`RELIZY_TWITTER_API_KEY`...)           | [Twitter posts](./social-media.md)                                       |
-| `SLACK_TOKEN`                                                                                      | `slack-token` (`RELIZY_SLACK_TOKEN`)                         | [Slack posts](./social-media.md)                                         |
-| `TEAMS_WEBHOOK_URL`                                                                                | `teams-webhook-url` (`RELIZY_TEAMS_WEBHOOK_URL`)             | [Teams cards](./social-media.md#microsoft-teams)                         |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | `claude-code-oauth-token` (`RELIZY_CLAUDE_CODE_OAUTH_TOKEN`) | [AI rewrites](./ai-changelog.md)                                         |
+| Secret                                                                                             | Input of the action (variable without it)                    | When                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (none)                                                                                             | `github-token`, by default (`GITHUB_TOKEN`)                  | Always                                                                                                                                                                                                          |
+| `NPM_TOKEN`                                                                                        | `npm-token` (`RELIZY_NPM_TOKEN`)                             | Optional on npmjs: only without [trusted publishing](./trusted-publishing.md), or for the first publish of a new package. An empty secret means no token. Required for a restricted package or another registry |
+| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | `twitter-api-key`... (`RELIZY_TWITTER_API_KEY`...)           | [Twitter posts](./social-media.md)                                                                                                                                                                              |
+| `SLACK_TOKEN`                                                                                      | `slack-token` (`RELIZY_SLACK_TOKEN`)                         | [Slack posts](./social-media.md)                                                                                                                                                                                |
+| `TEAMS_WEBHOOK_URL`                                                                                | `teams-webhook-url` (`RELIZY_TEAMS_WEBHOOK_URL`)             | [Teams cards](./social-media.md#microsoft-teams)                                                                                                                                                                |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | `claude-code-oauth-token` (`RELIZY_CLAUDE_CODE_OAUTH_TOKEN`) | [AI rewrites](./ai-changelog.md)                                                                                                                                                                                |
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `registry-url` nor `NODE_AUTH_TOKEN` needed.
 
@@ -133,7 +134,7 @@ The permissions of the job:
 
 - `contents: write`: push the release commit and the tags, create the GitHub release. Without it, the release stops before publishing, with the fix.
 - `pull-requests: write` and `issues: write`: the [PR comment](./pr-comment.md).
-- `id-token: write`: publish to npm without `NPM_TOKEN`, with [trusted publishing](./trusted-publishing.md).
+- `id-token: write`: publish to npm without `NPM_TOKEN`, with [trusted publishing](./trusted-publishing.md) (set it up with [`relizy trust`](./../cli/trust.md)).
 
 ## Protected Branches and Rulesets
 
@@ -197,6 +198,31 @@ When the release fails, the log of the run is in `node_modules/.cache/relizy/rel
     path: node_modules/.cache/relizy/release.log
     include-hidden-files: true
 ```
+
+### Staged Releases
+
+With [`publish.staged`](./../config/publish.md#staged), the release stages the versions: they are on npm, but not installable until a maintainer approves them with 2FA, which a CI cannot do. The release succeeds, and `approve` is skipped in the CI. These outputs tell the next steps, and are only set when the run staged something (a run that publishes directly keeps the same outputs):
+
+| Output              | Content                                                   |
+| ------------------- | --------------------------------------------------------- |
+| `staged`            | `true`                                                    |
+| `stage_ids`         | The ids of the stages, comma-separated                    |
+| `awaiting_approval` | The `name@version` that await approval, comma-separated   |
+| `publish_auth`      | How the publish authenticated: `oidc`, `token` or `npmrc` |
+
+Test `staged == 'true'`: an absent output means nothing was staged. `released` stays `true` (the versions are bumped, tagged and pushed), and it does not mean installable.
+
+```yaml
+- uses: relizy/action@v2
+  id: release
+  with:
+    args: --staged
+- if: steps.release.outputs.staged == 'true'
+  run: |
+    echo "Awaiting approval: ${{ steps.release.outputs.awaiting_approval }}"
+```
+
+`--staged` and `--approve` go through the `args` input, there is no input of their own. Approve from your machine with `relizy stage approve --all`, see [Staged publishing](./staged-publishing.md#releases-from-a-ci).
 
 ## Variants
 

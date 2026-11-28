@@ -72,7 +72,7 @@ Every event has `type` and `time` (milliseconds since the epoch).
 | `step:done`        | A step succeeded                                                    | `step`, `label`, `message` (what it did), `durationMs`, `details`, `data` (what it did, see [Step data](#step-data))                                                           |
 | `step:failed`      | A step failed                                                       | `step`, `label`, `message`, `durationMs`, `fatal` (`false` when the release goes on: a post, a provider release), `cancelled`, `data` (what it did before failing, when known) |
 | `step:skipped`     | A step is left out                                                  | `step`, `label`, `reason`: the flag of the run (`--no-publish`), `canary`, or the option of the config (`release.social: false`)                                               |
-| `step:item`        | A thing of the running step starts or ends: a package, a platform   | `step` (`publish`, `social`), `item`: `name`, `status` (`running`, `done`, `failed`, `skipped`), `detail`, `url`                                                               |
+| `step:item`        | A thing of the running step starts or ends: a package, a platform   | `step` (`publish`, `approve`, `reject`, `social`), `item`: `name`, `status` (`running`, `done`, `failed`, `skipped`), `detail`, `url`                                          |
 | `progress`         | What the running step does now                                      | `message`, `ai` (done by AI)                                                                                                                                                   |
 | `note`             | What a step did, shown under its result                             | `message`, `ai`                                                                                                                                                                |
 | `link`             | What a step created: a release, an npm page, a post, the PR comment | `step` (`publish`, `provider-release`, `social`, `sync`, `pr-comment`), `label`, `url`                                                                                         |
@@ -82,7 +82,7 @@ Every event has `type` and `time` (milliseconds since the epoch).
 | `command:complete` | Another command is over                                             | `message`, `nothing`, `failed`, `warnings`, `links`, `durationMs`                                                                                                              |
 | `command:error`    | The command failed, or its prompt was refused                       | `message`, `failedStep`, `cancelled`, `report` (a release that failed)                                                                                                         |
 
-`step` is the name of the step as the [hooks](./../config/hooks.md) name it: `checks`, `bump`, `changelog`, `publish`, `commit-and-tag`, `push`, `provider-release`, `social`, `sync`, `pr-comment`, and `merge-preview` for the steps of [`mergePreview()`](./merge-preview.md). It is missing for a step that has no hook. The steps of the other commands (`relizy publish` alone: `publish`) use the same names.
+`step` is the name of the step as the [hooks](./../config/hooks.md) name it: `checks`, `bump`, `changelog`, `publish`, `commit-and-tag`, `push`, `sync`, `provider-release`, `approve`, `social`, `pr-comment`, and `merge-preview` for the steps of [`mergePreview()`](./merge-preview.md), `list`, `reject` and `trust` for [`stage()`](./stage.md) and [`trust()`](./trust.md) (with `approve`, which `stage()` shares with `release()`). It is missing for a step that has no hook. The steps of the other commands (`relizy publish` alone: `publish`) use the same names.
 
 A name can come with several `step:start`/`step:done` pairs: `relizy publish` alone gives three `publish` pairs (checking the packages, building them with `publish.buildCmd`, publishing them, only the last one with `data`), and `mergePreview()` one `merge-preview` pair per part of the preview (the merge, the release, the checks, the comment, the commit status). Within `release`, `publish` is one pair.
 
@@ -92,20 +92,62 @@ The types are exported: `RelizyEvent` (the union), `RelizyEventListener`, one ty
 
 `step:done` (and `step:failed` when the step knows what it did before failing) carries `data`, what the step did as data, typed by `step`: an interface renders each step without parsing its `message`.
 
-| `step`             | `data`                                                                                                                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `checks`           | `checks`: `{ name, status, message? }` per safety check (`provider-release`, `publish`, `social`, `branch`, `push`, and `sync` when branches are synced), `status` `passed`, `failed` or `skipped` |
-| `bump`             | `packages`: `{ name, oldVersion, newVersion, group? }`                                                                                                                                             |
-| `changelog`        | `files`: `{ file, packageName, content }`, the file relative to the project and the entry added (previewed in dry-run)                                                                             |
-| `publish`          | `registry`, `tag` (the dist-tag), `dryRun`, `packages`: `{ name, version, status, url?, reason? }` in publish order, `status` `published`, `skipped` (already on the registry) or `failed`         |
-| `commit-and-tag`   | `commit`: `{ hash?, message }` (no hash in dry-run), `tags`                                                                                                                                        |
-| `push`             | `remote`, `branch`, `tags` (the tags were pushed)                                                                                                                                                  |
-| `provider-release` | `provider`, `releases`: `{ tag, name?, url? }`                                                                                                                                                     |
-| `social`           | `dryRun`, `posts`: `{ platform, status, url?, reason? }`, `status` `posted`, `skipped` or `failed`                                                                                                 |
-| `sync`             | `mode`, `source`, `dryRun`, `branches`: `{ branch, status, commit?, pullRequest?, conflicts?, reason? }`, `status` `merged`, `fast-forward`, `up-to-date`, `pull-request`, `conflict` or `failed`  |
-| `pr-comment`       | `posted`, `number?`, `url?`                                                                                                                                                                        |
+| `step`              | `data`                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checks`            | `checks`: `{ name, status, message? }` per safety check (`provider-release`, `publish`, `social`, `branch`, `push`, and `sync` when branches are synced), `status` `passed`, `failed` or `skipped`                                                                                                                                                       |
+| `bump`              | `packages`: `{ name, oldVersion, newVersion, group? }`                                                                                                                                                                                                                                                                                                   |
+| `changelog`         | `files`: `{ file, packageName, content }`, the file relative to the project and the entry added (previewed in dry-run)                                                                                                                                                                                                                                   |
+| `publish`           | `registry`, `tag` (the dist-tag), `dryRun`, `packages`: `{ name, version, status, url?, reason?, stageId?, tag? }` in publish order, `status` `published`, `staged`, `skipped` (already on the registry, or already staged) or `failed`, and `auth` (`oidc`, `token` or `npmrc`) when the run staged                                                     |
+| `commit-and-tag`    | `commit`: `{ hash?, message }` (no hash in dry-run), `tags`                                                                                                                                                                                                                                                                                              |
+| `push`              | `remote`, `branch`, `tags` (the tags were pushed)                                                                                                                                                                                                                                                                                                        |
+| `provider-release`  | `provider`, `releases`: `{ tag, name?, url? }`                                                                                                                                                                                                                                                                                                           |
+| `social`            | `dryRun`, `posts`: `{ platform, status, url?, reason? }`, `status` `posted`, `skipped` or `failed`                                                                                                                                                                                                                                                       |
+| `sync`              | `mode`, `source`, `dryRun`, `branches`: `{ branch, status, commit?, pullRequest?, conflicts?, reason? }`, `status` `merged`, `fast-forward`, `up-to-date`, `pull-request`, `conflict` or `failed`                                                                                                                                                        |
+| `pr-comment`        | `posted`, `number?`, `url?`                                                                                                                                                                                                                                                                                                                              |
+| `approve`, `reject` | `packages`: `{ name, version, stageId?, status, reason?, url? }`, `status` `approved` (`approve`), `rejected` (`reject`), `skipped` or `failed`. `reason` of a skip or a failure: `ci`, `oidc`, `not interactive`, `disabled`, `declined`, `dry run`, `validating`, `web-auth` (with `url`, the page to approve on), `dependency <name> not approved`... |
+| `list`              | `versions`: the staged versions, `{ stageId, name, version, tag, status, createdAt?, actor?... }`                                                                                                                                                                                                                                                        |
+| `trust`             | `packages`: `{ name, status, reason?, publishers? }`, `status` `created`, `exists`, `differs`, `replaced`, `missing` or `failed`                                                                                                                                                                                                                         |
 
-With `dryRun: true` (the run is a simulation), `published` and `posted` mean what the run would do: nothing was published nor posted, and the packages have no `url`.
+With `dryRun: true` (the run is a simulation), `published`, `staged` and `posted` mean what the run would do: nothing was published, staged nor posted, and the packages have no `url`.
+
+### Staged Versions
+
+A staged version is uploaded, not installable: its `step:item` ends `done`, and it has no `link` event (its npm page does not exist until approval). The `approve` step is only emitted when [`publish.staged`](./../config/publish.md#staged) is not `false`, so a release that does not stage has the same events, report and outputs as before. In a release it comes after `provider-release` and before `social` (right after `publish` for a canary).
+
+A new member of a union must be handled by the code that switches on it:
+
+| Union                                                 | New member                              |
+| ----------------------------------------------------- | --------------------------------------- |
+| `PublishStepPackage['status']`, `PublishTargetStatus` | `'staged'`                              |
+| `ReleaseStepId` (and `RELEASE_STEPS`)                 | `'approve'`                             |
+| `CommandStepId`                                       | `'list'`, `'reject'`, `'trust'`         |
+| `StepDataMap`                                         | `approve`, `reject`, `list` and `trust` |
+| `TrustedPublishingProvider` (`@relizy/core`)          | `'CircleCI'`                            |
+| `OtpRequest`                                          | `purpose` and `count`, optional         |
+
+```ts
+import { release } from 'relizy'
+
+await release({
+  onProgress(event) {
+    if (event.type === 'step:done' && event.step === 'publish') {
+      for (const pkg of event.data?.packages ?? []) {
+        // 'staged': uploaded, awaiting approval, not installable
+        if (pkg.status === 'staged') {
+          console.log(`${pkg.name}@${pkg.version} staged as ${pkg.stageId} with the tag ${pkg.tag}`)
+        }
+      }
+    }
+
+    if (event.type === 'step:done' && event.step === 'approve') {
+      const awaiting = event.data?.packages.filter(pkg => pkg.status !== 'approved') ?? []
+      console.log(`${awaiting.length} versions still await approval`)
+    }
+  },
+})
+```
+
+The report of the release has the same facts: `publish.staged` (`{ name, version, tag, registry, stageId?, approved? }` per version) and `publish.auth`, updated once the `approve` step approved versions.
 
 ```ts
 import { release } from 'relizy'
@@ -130,7 +172,8 @@ await release({
 The prompts of the terminal have their option, for an application asking in its own interface:
 
 - `onConfirm(plan)` ([`release()`](./release.md), [`bump()`](./bump.md)) validates the computed versions before anything is written; `false` cancels the run as a refused prompt. An error it throws fails the run (`cancelled: false`, nothing written): throw a `RelizyCancelError` to cancel instead. It is not called when the versions are confirmed in advance: `yes`, or `bump.yes: true` in the config or the profile. Without `onConfirm` nor `yes`, the terminal asks
-- `onOtp({ registry, packageName })` ([`release()`](./release.md), [`publish()`](./publish.md)) gives the one-time password the registry asks for, as a string or a promise. An empty password (or none) cancels the publish as a refused prompt (a `RelizyCancelError`, `cancelled: true`); the packages published before stay published
+- `onOtp({ registry, packageName, purpose, count })` ([`release()`](./release.md), [`publish()`](./publish.md), [`stage()`](./stage.md), [`trust()`](./trust.md)) gives the one-time password the registry asks for, as a string or a promise. An empty password (or none) cancels the publish as a refused prompt (a `RelizyCancelError`, `cancelled: true`); the packages published before stay published. A publish asks once per registry and reuses the code; an approval, a rejection or a trust setup asks once for its whole batch (`purpose` `approve`, `reject` or `trust`, `count` the versions or packages the code covers) and never reuses the code of the publish, so show the right question
+- `onPrompt({ kind, items })` ([`release()`](./release.md), [`publish()`](./publish.md), [`stage()`](./stage.md), [`trust()`](./trust.md)) answers the questions of the staged versions and of the trust setup, never the validation of the bump plan, which stays `onConfirm`. `kind` is `approve-staged`, `reject-staged` (final), `replace-trust` (revoke and recreate configurations) or `write-config` (write the `publish.staged` `relizy trust` proposes, `detail` holds the diff); `items` are `{ name, version?, stageId?, detail? }`. Answer `true` to go on. Without it and without a terminal, the answer is no: nothing is approved, rejected, revoked nor written. Only `publish.approve: 'prompt'` asks: `true` and `--approve` approve without a question. An app answering `onConfirm: () => true` never approves by accident
 
 ```ts
 import { release } from 'relizy'
@@ -138,7 +181,9 @@ import { release } from 'relizy'
 await release({
   // Asked once the versions are computed, nothing written yet
   onConfirm: plan => showPlanInTheApp(plan.packages),
-  onOtp: ({ registry }) => askTheOtpInTheApp(registry),
+  onOtp: ({ registry, purpose, count }) => askTheOtpInTheApp({ registry, purpose, count }),
+  // The approval of the staged versions, with `publish.approve: 'prompt'`
+  onPrompt: ({ kind, items }) => confirmInTheApp(kind, items),
   onProgress: event => renderInTheApp(event),
 })
 ```

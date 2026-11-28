@@ -42,7 +42,7 @@ The `release` component of the [CI/CD catalog](https://gitlab.com/explore/catalo
 
 - **Image**: `node:lts`, or the Node version of `.nvmrc` or `.node-version` given by `init` (`image` input). Relizy needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`.
 - **Setup**: your package manager (from the lockfile: corepack for pnpm and Yarn, Bun, npm) and the install from the lockfile. `setup: false` skips it, when the image or a `before_script` already did.
-- **npm**: updated to 11.5.1 or later for [trusted publishing](./trusted-publishing.md), with the `NPM_ID_TOKEN` id token.
+- **npm**: updated to npm 11 when it is older than 11.15.0 (staged publishing and [`relizy trust`](./../cli/trust.md) need it), with the `NPM_ID_TOKEN` id token for [trusted publishing](./trusted-publishing.md).
 - **AI rewrites**: the `claude` CLI, when `CLAUDE_CODE_OAUTH_TOKEN` is set.
 - **Relizy**: the version of your `package.json`, else the version of the component (`relizy-version` forces one).
 - **Release**: `relizy release --yes --report-dotenv relizy.env`, with the release type and the `args` you give, and the [outputs](#outputs-and-summary) as a `dotenv` artifact. `GIT_DEPTH: 0` only saves a fetch: Relizy fetches the history of a shallow clone, checks out the branch of the detached HEAD and sets the git identity itself (see [What Relizy Handles in CI](./ci-cd.md#what-relizy-handles-in-ci)).
@@ -94,8 +94,9 @@ release:
   before_script:
     - npm install -g corepack && corepack enable
     - pnpm install --frozen-lockfile
-    # npm trusted publishing (OIDC) needs npm 11.5.1 or later: https://relizy.dev/guide/trusted-publishing
-    - npm install -g npm@latest
+    # npm trusted publishing (OIDC) needs npm 11.5.1 or later, staged publishing 11.15.0: https://relizy.dev/guide/trusted-publishing
+    - |
+      node -e "const [a, b] = process.argv[1].split('.').map(Number); process.exit(a > 11 || (a === 11 && b >= 15) ? 0 : 1)" "$(npm --version)" || npm install -g npm@11
   script:
     - if [ "$RELEASE_TYPE" != "auto" ]; then RELEASE_FLAG="--$RELEASE_TYPE"; fi
     - pnpm exec relizy release --yes $RELEASE_FLAG --report-dotenv relizy.env
@@ -111,14 +112,14 @@ pnpm and yarn come from corepack (`npm install -g corepack && corepack enable`: 
 
 Add them in Settings > CI/CD > Variables, masked. GitLab passes them to the job under the same names.
 
-| Variable                                                                                           | When                                                                     |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `GITLAB_TOKEN`                                                                                     | Always: push, GitLab release, MR comment                                 |
-| `NPM_TOKEN`                                                                                        | Publishing to npm, without [trusted publishing](./trusted-publishing.md) |
-| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | [Twitter posts](./social-media.md)                                       |
-| `SLACK_TOKEN`                                                                                      | [Slack posts](./social-media.md)                                         |
-| `TEAMS_WEBHOOK_URL_B64` (the URL in base64: a masked variable refuses its characters)              | [Teams cards](./social-media.md#microsoft-teams)                         |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | [AI rewrites](./ai-changelog.md)                                         |
+| Variable                                                                                           | When                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITLAB_TOKEN`                                                                                     | Always: push, GitLab release, MR comment                                                                                                                                        |
+| `NPM_TOKEN`                                                                                        | Optional on npmjs: only without [trusted publishing](./trusted-publishing.md), or for the first publish of a new package. Required for a restricted package or another registry |
+| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | [Twitter posts](./social-media.md)                                                                                                                                              |
+| `SLACK_TOKEN`                                                                                      | [Slack posts](./social-media.md)                                                                                                                                                |
+| `TEAMS_WEBHOOK_URL_B64` (the URL in base64: a masked variable refuses its characters)              | [Teams cards](./social-media.md#microsoft-teams)                                                                                                                                |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | [AI rewrites](./ai-changelog.md)                                                                                                                                                |
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `.npmrc` to write in the job.
 
@@ -198,6 +199,30 @@ release:
     reports:
       dotenv: relizy.env
 ```
+
+### Staged Releases
+
+With [`publish.staged`](./../config/publish.md#staged), the release stages the versions: they are on npm, but not installable until a maintainer approves them with 2FA, which a CI cannot do. The release succeeds, and `approve` is skipped in the CI. The dotenv artifact then also has these variables, only set when the run staged something:
+
+| Variable                   | Content                                                   |
+| -------------------------- | --------------------------------------------------------- |
+| `RELIZY_STAGED`            | `true`                                                    |
+| `RELIZY_STAGE_IDS`         | The ids of the stages, comma-separated                    |
+| `RELIZY_AWAITING_APPROVAL` | The `name@version` that await approval, comma-separated   |
+| `RELIZY_PUBLISH_AUTH`      | How the publish authenticated: `oidc`, `token` or `npmrc` |
+
+```yaml
+notify-approval:
+  stage: .post
+  needs: [release]
+  script:
+    - |
+      if [ "$RELIZY_STAGED" = "true" ]; then
+        echo "Awaiting approval: $RELIZY_AWAITING_APPROVAL"
+      fi
+```
+
+`RELIZY_RELEASED` stays `true`, and it does not mean installable. Pass `--staged` or `--approve` in the `args` input of the component. Approve from your machine with `relizy stage approve --all`, see [Staged publishing](./staged-publishing.md#releases-from-a-ci).
 
 ## Variants
 

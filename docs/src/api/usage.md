@@ -73,18 +73,19 @@ The [typedoc](./../typedoc/index.md) lists every export and type.
 
 The commands take the options of their CLI command, camelCased (`--format-cmd` is `formatCmd`, `--no-push` is `push: false`), and these ones:
 
-| Option       | Description                                                                                                                                                     |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `configName` | Config to load, as `--config`: `relizy.standalone` for `relizy.standalone.config.ts`                                                                            |
-| `config`     | A config resolved by [`loadRelizyConfig()`](./load-relizy-config.md), see below                                                                                 |
-| `overrides`  | Options applied over the config file (or over `config`), under the options of the call, see below. For `release()` and `mergePreview()`                         |
-| `onProgress` | Called with each [event](./progress-events.md) of the run, with what each step did as [data](./progress-events.md#step-data)                                    |
-| `onConfirm`  | Validates the versions instead of the prompt (`release()`, `bump()`), see [Answering from the application](./progress-events.md#answering-from-the-application) |
-| `onOtp`      | Gives the one-time password of the registry instead of the prompt (`release()`, `publish()`)                                                                    |
-| `profile`    | A [profile](./../config/profiles.md) of the config to apply, as `--profile`. The options of the call still win over it                                          |
-| `dryRun`     | Write nothing, as `--dry-run`                                                                                                                                   |
-| `logLevel`   | As `--log-level`                                                                                                                                                |
-| `groups`     | Only these [version groups](./../guide/version-groups.md), as `--group` (an array of names), for the commands of `--group`                                      |
+| Option       | Description                                                                                                                                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `configName` | Config to load, as `--config`: `relizy.standalone` for `relizy.standalone.config.ts`                                                                                                                                                  |
+| `config`     | A config resolved by [`loadRelizyConfig()`](./load-relizy-config.md), see below                                                                                                                                                       |
+| `overrides`  | Options applied over the config file (or over `config`), under the options of the call, see below. For `release()` and `mergePreview()`                                                                                               |
+| `onProgress` | Called with each [event](./progress-events.md) of the run, with what each step did as [data](./progress-events.md#step-data)                                                                                                          |
+| `onConfirm`  | Validates the versions instead of the prompt (`release()`, `bump()`), see [Answering from the application](./progress-events.md#answering-from-the-application)                                                                       |
+| `onOtp`      | Gives the one-time password of the registry instead of the prompt (`release()`, `publish()`, `stage()`, `trust()`), with its `purpose` and `count`                                                                                    |
+| `onPrompt`   | Answers the questions of the staged versions and of the trust setup instead of the prompt (`release()`, `publish()`, `stage()`, `trust()`), see [Answering from the application](./progress-events.md#answering-from-the-application) |
+| `profile`    | A [profile](./../config/profiles.md) of the config to apply, as `--profile`. The options of the call still win over it                                                                                                                |
+| `dryRun`     | Write nothing, as `--dry-run`                                                                                                                                                                                                         |
+| `logLevel`   | As `--log-level`                                                                                                                                                                                                                      |
+| `groups`     | Only these [version groups](./../guide/version-groups.md), as `--group` (an array of names), for the commands of `--group`                                                                                                            |
 
 With a `config`, the config file is not loaded: the commands use the given config as it is, the [profile](./../config/profiles.md) of the call, then the options of the call on top. Without it, they load the config file (`configName`, `relizy` by default).
 
