@@ -36,6 +36,11 @@ vi.mock('../core/src/gh-cli', () => ({
   getGhCliToken: vi.fn(() => undefined),
 }))
 
+// The token of the GitLab CLI of the machine: none in the tests
+vi.mock('../core/src/glab-cli', () => ({
+  getGlabCliToken: vi.fn(() => undefined),
+}))
+
 // The preparation of a CI clone runs git on the repository: none in the tests
 vi.mock('../core/src/ci', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../core/src/ci')>()

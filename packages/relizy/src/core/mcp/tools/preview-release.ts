@@ -52,6 +52,13 @@ function releaseSteps(preview: ReleasePreview): string {
     .join(', ')
 }
 
+/** The steps whose option is on but that do nothing in this release, with why: `Skipped: social posts (no platform enabled).` */
+function skippedSteps(preview: ReleasePreview): string[] {
+  return preview.steps
+    .filter(step => !step.enabled && step.reason)
+    .map(step => `Skipped: ${step.label.toLowerCase()} (${step.reason}).`)
+}
+
 /** With `publish.staged`: which versions are staged and which are published directly, with their dist-tag */
 function describeStaging(set: PreviewSet): string[] {
   const packages = set.packages.filter(pkg => pkg.publish)
@@ -124,6 +131,7 @@ function describeNextSteps(preview: ReleasePreview): string[] {
       : 'none (`release.gitTag` is off)'}`,
     '',
     `\`relizy release\` would then ${releaseSteps(preview)}.`,
+    ...skippedSteps(preview),
     '',
     'Next: `preview_changelog` with the same arguments for the changelogs. To release, ask the user first: `relizy release --dry-run` shows every step, then `relizy release` (usually run by the CI).',
   ]

@@ -112,6 +112,7 @@ describe('Given the public API of @relizy/core', () => {
         'getGitlabAuthHeader',
         'getGitlabReleasePayload',
         'getGitlabReleasesUrl',
+        'getGlabCliToken',
         'getHeadCommit',
         'getIndependentTag',
         'getInstallDependenciesCommand',

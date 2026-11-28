@@ -22,7 +22,12 @@ Before the merge, [`relizy merge-preview`](./merge-preview.md) posts its own com
 
 ## Finding the Pull Request
 
-Relizy looks for the **open** pull request (GitHub) or merge request (GitLab) whose source branch is the current branch, in the repository of the config (`repo`, else the `repository` field of the closest `package.json`, else the `origin` remote). Without one, it looks for the pull request of the commit the release started from (before its release commit), merged or not: a job running on the push to `main` after a merge comments the pull request it merged.
+A release made at the merge of a pull request comments the pull request it merged:
+
+- on the push to the target branch (`main`), the pull request merged into this branch by the commit the release started from (before its release commit), even when an open pull request leaves from this branch (the one syncing `main` into `develop`);
+- in a GitHub Actions workflow triggered by the merge (`on: pull_request: types: [closed]` with `if: github.event.pull_request.merged`), the pull request of the event.
+
+Otherwise, Relizy looks for the **open** pull request (GitHub) or merge request (GitLab) whose source branch is the current branch, in the repository of the config (`repo`, else the `repository` field of the closest `package.json`, else the `origin` remote). Without one, it takes the pull request of the commit the release started from, merged or not. A re-run updates the comment of the release instead of posting another one (see [`prComment.mode`](./../config/pr-comment.md)).
 
 It finds nothing:
 

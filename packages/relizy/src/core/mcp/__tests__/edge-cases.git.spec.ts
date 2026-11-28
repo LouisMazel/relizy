@@ -129,7 +129,16 @@ describe('Given preview_release with every step of the release turned off', () =
 
       const text = await previewRelease(createTestContext(repository.cwd), { force: true, type: 'patch' })
 
-      expect(text).toContain('`relizy release` would then write the changelogs, publish to npm, commit, tag, push, create the GitHub/GitLab releases, post on the social networks.')
+      expect(text).toContain('`relizy release` would then write the changelogs, publish to npm, commit, tag, push, create the GitHub/GitLab releases.\nSkipped: social posts (no platform enabled).')
+    })
+
+    it('Then it lists the social posts when a platform posts the release', async () => {
+      const repository = createApp(`release: { prComment: false }, social: { slack: { enabled: true } }`)
+
+      const text = await previewRelease(createTestContext(repository.cwd), { force: true, type: 'patch' })
+
+      expect(text).toContain('create the GitHub/GitLab releases, post on the social networks.')
+      expect(text).not.toContain('Skipped: social posts')
     })
 
     it('Then it leaves out the tags and the push without the release commit', async () => {

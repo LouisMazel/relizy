@@ -44,7 +44,10 @@ export interface MergePreviewContext {
   warning?: string
 }
 
-function readGitHubEvent(env: Env): Record<string, any> | undefined {
+/**
+ * The payload of the event of the GitHub Actions run (`GITHUB_EVENT_PATH`), none outside one or unreadable
+ */
+export function readGitHubEvent(env: Env): Record<string, any> | undefined {
   const eventPath = env.GITHUB_EVENT_PATH
   if (!eventPath || !existsSync(eventPath)) {
     return undefined
