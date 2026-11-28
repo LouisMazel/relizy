@@ -94,15 +94,22 @@ relizy merge-preview
 
 ### Outside the Pipeline
 
-From a terminal or an app, `--pr-number` (`prNumber` of [`mergePreview()`](./../api/merge-preview.md)) previews and comments a pull request without its pipeline:
+From a terminal or an app, `--pr-number` (`prNumber` of [`mergePreview()`](./../api/merge-preview.md)) previews a pull request without its pipeline. It only prints the preview; `--comment` (`comment: true`) also posts it:
 
 ```bash
+# Print what the merge of the pull request 42 releases
 relizy merge-preview --pr-number 42
+
+# Print it and post it on the pull request
+relizy merge-preview --pr-number 42 --comment
 ```
 
-Relizy reads the pull request from the API of GitHub or GitLab (its target branch, its last commit, its title), computes the merge on the current checkout, and updates the comment it already posted on the pull request (never a second one). The checkout must be the last commit of the pull request: otherwise the preview is only printed, and nothing is posted. The token is the one of the config, else the one of the logged-in `gh` or `glab` (see [Tokens](./../config/overview.md#tokens)).
+- Relizy reads the pull request from the API of GitHub or GitLab (target branch, last commit, title) and computes the merge on the current checkout.
+- `--comment` updates the comment relizy already posted, never a second one. `--check` also sets the commit status. The `mergePreview` settings of the config only apply in the pipeline.
+- The checkout must be the last commit of the pull request, else nothing is posted.
+- The token is the one of the config, else the one of the logged-in `gh` or `glab` (see [Tokens](./../config/overview.md#tokens)).
 
-When the pull request is not commented, the command warns why, and the report gives it in `mergePreview.posted.reason`: no token, forge unknown (`repo.provider`), pull request not found or closed, checkout not its last commit, refused by the API.
+When nothing is posted, the report says why in `mergePreview.posted.reason`: not asked (no `--comment`), or, with a warning of the command, no token, forge unknown (`repo.provider`), pull request not found or closed, checkout not its last commit, refused by the API.
 
 ## How the Merge Is Computed
 

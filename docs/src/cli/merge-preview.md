@@ -47,6 +47,7 @@ Give it the options of the release job that change the release: the preview of `
 | `--private-packages <mode>`                              | `ignore` or `release` the private packages, as the release job                                                   | [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages) |
 | `--token <token>`                                        | GitHub or GitLab token, for the comment and the commit status                                                    | [`tokens`](./../config/overview.md#tokens)                            |
 | `--publish-token <token>`                                | Registry token, for the versions already published                                                               | [`tokens.registry`](./../config/overview.md#tokens)                   |
+| `--comment`                                              | Comment the pull request of `--pr-number` outside its pipeline (only printed otherwise)                          | -                                                                     |
 | `--no-comment`                                           | Do not comment the pull request                                                                                  | [`mergePreview.comment`](./../config/merge-preview.md#comment)        |
 | `--pr-comment-mode <mode>`                               | `recreate`: post the comment again at the bottom of the pull request at each run, instead of updating it         | [`prComment.mode`](./../config/pr-comment.md#mode)                    |
 | `--check`, `--no-check`                                  | Set the commit status `relizy/merge-preview`, or not. Off by default                                             | [`mergePreview.check`](./../config/merge-preview.md#check)            |
@@ -68,7 +69,7 @@ relizy merge-preview --prerelease --preid beta --tag beta
 relizy merge-preview --no-comment
 
 # Locally: comment the pull request #42, checked out at its last commit
-relizy merge-preview --pr-number 42
+relizy merge-preview --pr-number 42 --comment
 ```
 
 ## See Also

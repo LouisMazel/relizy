@@ -133,7 +133,7 @@ All the variables and their aliases: [Tokens](./../config/overview.md#tokens). R
 The permissions of the job:
 
 - `contents: write`: push the release commit and the tags, create the GitHub release. Without it, the release stops before publishing, with the fix.
-- `pull-requests: write` and `issues: write`: the [PR comment](./pr-comment.md).
+- `pull-requests: write` and `issues: write`: the [PR comment](./pr-comment.md), on the pull request the release merged (on `push` or `pull_request: closed`). `relizy init` only adds them when the comment is on.
 - `id-token: write`: publish to npm without `NPM_TOKEN`, with [trusted publishing](./trusted-publishing.md) (set it up with [`relizy trust`](./../cli/trust.md)).
 
 ## Protected Branches and Rulesets
