@@ -329,6 +329,10 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
     ...(options.publish
       ? ['      # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com', '      id-token: write']
       : []),
+    // The relizy action sets the commit status relizy/release by default (its report-status input)
+    ...(options.integration
+      ? ['      # The commit status relizy/release, to follow the release while it runs', '      statuses: write']
+      : []),
     '    steps:',
     '      - uses: actions/checkout@v7',
     '        with:',
