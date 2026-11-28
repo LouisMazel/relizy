@@ -58,6 +58,8 @@ export { getPosixRelativePath } from './paths'
 export { describeOutOfRange, findStalePeerDependents, getOutOfRangeDependencies, getOutOfRangePeers, getPublishedRange, isBreakingVersionChange, parseWorkspaceProtocol, parseWorkspaceSpecifier } from './peers'
 export type { DependencyField, OutOfRangeDependency, OutOfRangePeer, StaleDependent, VersionChange } from './peers'
 export { getAuthCommand, getPublishCommand, getPublishTag, isOtpError, isPaymentRequiredError, publishToRegistry } from './publish'
+export { checkTrustedPublisher, getPublishAuth, getUnsupportedRunnerReason } from './publish-auth'
+export type { PublishAuth, PublishAuthMode, TrustedPublisherCheck } from './publish-auth'
 
 export { redactSecrets } from './redact'
 export { getNpmRegistry, normalizeRegistryKey, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages, withRegistryNpmrc } from './registry'

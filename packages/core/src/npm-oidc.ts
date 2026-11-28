@@ -14,7 +14,7 @@ import * as semver from 'semver'
 type Env = NodeJS.ProcessEnv
 
 /** The CI providers npm trusts for trusted publishing (OIDC), as relizy detects them */
-export type TrustedPublishingProvider = 'GitHub Actions' | 'GitLab CI'
+export type TrustedPublishingProvider = 'GitHub Actions' | 'GitLab CI' | 'CircleCI'
 
 /** The first npm version doing the OIDC exchange (`'11.5.1'`), the minimum for trusted publishing with npm */
 export const TRUSTED_PUBLISHING_NPM_VERSION = '11.5.1'
@@ -44,10 +44,11 @@ export function getEnvNpmToken(env: Env = process.env): string | undefined {
 /**
  * The CI provider of the job when it can get an OIDC token for npm: GitHub
  * Actions with the `id-token: write` permission, GitLab CI with the
- * `NPM_ID_TOKEN` id token
+ * `NPM_ID_TOKEN` id token, CircleCI with `NPM_ID_TOKEN` set from
+ * `circleci run oidc get`
  *
  * @param env - Environment to read (`process.env` by default).
- * @returns `'GitHub Actions'` or `'GitLab CI'`, `undefined` when the job cannot get an OIDC token.
+ * @returns `'GitHub Actions'`, `'GitLab CI'` or `'CircleCI'`, `undefined` when the job cannot get an OIDC token.
  * @example
  * ```ts
  * getTrustedPublishingProvider({ GITLAB_CI: 'true', NPM_ID_TOKEN: 'eyJ...' }) // 'GitLab CI'
@@ -61,6 +62,10 @@ export function getTrustedPublishingProvider(env: Env = process.env): TrustedPub
 
   if (env.GITLAB_CI === 'true' && env.NPM_ID_TOKEN) {
     return 'GitLab CI'
+  }
+
+  if (env.CIRCLECI === 'true' && env.NPM_ID_TOKEN) {
+    return 'CircleCI'
   }
 
   return undefined
