@@ -1,6 +1,6 @@
 import type { GitRepository } from '../../../../../tests/git-repository'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -186,7 +186,7 @@ describe('Given the merge preview of a pull request run outside its pipeline, wi
       vi.stubEnv('RELIZY_GITHUB_TOKEN', 'gh-token')
       const fetch = mockApi(github)
 
-      const first = await mergePreview({ prNumber: 7 })
+      const first = await mergePreview({ prNumber: 7, comment: true })
 
       expect(first.mergePreview?.posted).toEqual({ comment: true, status: false })
       expect(first.mergePreview?.pullRequest).toBe(7)
@@ -198,11 +198,57 @@ describe('Given the merge preview of a pull request run outside its pipeline, wi
         { id: 1, body: comment.body },
       ]
       fetch.mockClear()
-      const second = await mergePreview({ prNumber: 7 })
+      const second = await mergePreview({ prNumber: 7, comment: true })
 
       expect(second.mergePreview?.posted).toEqual({ comment: true, status: false })
       expect(calls(fetch, 'POST', '/issues/7/comments')).toEqual([])
       expect(calls(fetch, 'PATCH', '/issues/comments/1')).toHaveLength(1)
+    })
+
+    it('Then without comment: true, the preview of the pull request is only printed, as the default command', async () => {
+      vi.stubEnv('RELIZY_GITHUB_TOKEN', 'gh-token')
+      useConfig(`, repo: { provider: 'github', domain: 'github.com', repo: 'test/repo' }, mergePreview: { comment: true, check: true }`)
+      const fetch = mockApi(github)
+
+      const json = join(dir, 'report.json')
+      const report = await mergePreview({
+        prNumber: 7,
+        report: { json },
+      })
+
+      expect(report.mergePreview?.pullRequest).toBe(7)
+      const posted = {
+        comment: false,
+        status: false,
+        reason: 'not asked: outside the pipeline of the pull request, the preview is posted with --comment (comment: true)',
+      }
+      expect(report.mergePreview?.posted).toEqual(posted)
+      // The report an app reads
+      expect(JSON.parse(readFileSync(json, 'utf8')).mergePreview.posted).toEqual(posted)
+      expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/comments'), expect.anything())
+      expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/statuses/'), expect.anything())
+    })
+
+    it('Then with comment: true, the check of the config is not set: only what the run asks is posted', async () => {
+      vi.stubEnv('RELIZY_GITHUB_TOKEN', 'gh-token')
+      useConfig(`, repo: { provider: 'github', domain: 'github.com', repo: 'test/repo' }, mergePreview: { check: true }`)
+      const fetch = mockApi(github)
+
+      const report = await mergePreview({ prNumber: 7, comment: true })
+
+      expect(report.mergePreview?.posted).toEqual({ comment: true, status: false })
+      expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/statuses/'), expect.anything())
+    })
+
+    it('Then with check: true only, the status is set and no reason is given: something was posted', async () => {
+      vi.stubEnv('RELIZY_GITHUB_TOKEN', 'gh-token')
+      const fetch = mockApi(github)
+
+      const report = await mergePreview({ prNumber: 7, check: true })
+
+      expect(report.mergePreview?.posted).toEqual({ comment: false, status: true })
+      expect(calls(fetch, 'POST', '/statuses/')).toHaveLength(1)
+      expect(calls(fetch, 'POST', '/comments')).toEqual([])
     })
 
     it('Then without token, it says why nothing is posted', async () => {
@@ -291,7 +337,7 @@ describe('Given the merge preview of a pull request run outside its pipeline, wi
       vi.stubEnv('RELIZY_GITLAB_TOKEN', 'glpat-token')
       const fetch = mockApi(gitlab)
 
-      const first = await mergePreview({ prNumber: 7 })
+      const first = await mergePreview({ prNumber: 7, comment: true })
 
       expect(first.mergePreview?.posted).toEqual({ comment: true, status: false })
       const [note] = calls(fetch, 'POST', '/merge_requests/7/notes')
@@ -301,7 +347,7 @@ describe('Given the merge preview of a pull request run outside its pipeline, wi
         { id: 3, body: note.body },
       ]
       fetch.mockClear()
-      await mergePreview({ prNumber: 7 })
+      await mergePreview({ prNumber: 7, comment: true })
 
       expect(calls(fetch, 'POST', '/merge_requests/7/notes')).toEqual([])
       expect(calls(fetch, 'PUT', '/merge_requests/7/notes/3')).toHaveLength(1)
