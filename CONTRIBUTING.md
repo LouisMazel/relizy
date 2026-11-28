@@ -37,6 +37,8 @@ Thank you for considering contributing to Relizy! We appreciate your interest in
     - [Examples](#examples)
     - [Git Hooks](#git-hooks)
   - [Adding an AI Provider](#adding-an-ai-provider)
+  - [Local Models](#local-models)
+    - [Commit Classifier Dataset](#commit-classifier-dataset)
   - [Pull Request Process](#pull-request-process)
     - [Before Submitting](#before-submitting)
     - [Submitting the PR](#submitting-the-pr)
@@ -195,7 +197,8 @@ relizy/
 │   │   │   └── **/__tests__/   # Specs, *.git.spec.ts on real git repositories
 │   │   ├── agent-docs/         # Docs bundle of the MCP server, generated (gitignored, published)
 │   │   ├── bin/relizy.mjs      # CLI executable entry point
-│   │   ├── scripts/            # Generation of agent-docs, AI evaluations, peer dependency check
+│   │   ├── scripts/            # Generation of agent-docs, AI evaluations, peer dependency check,
+│   │   │                       #   dataset of the commit classifier
 │   │   └── tests/              # Mocks and test helpers of relizy
 │   └── core/                   # @relizy/core: the generic building blocks (workspaces, catalogs,
 │       └── src/                #   registries, git helpers, GitHub/GitLab providers)
@@ -374,6 +377,70 @@ The AI rewrites go through a small registry of providers behind one interface (`
 3. Add its name to `AIProviderName` and its options to `AIConfig.providers` in `src/types.ts`, then document them in `docs/src/config/ai.md` (`knowledge.spec.ts` checks it).
 
 The prompts, the fallbacks and the call sites need no change.
+
+## Local Models
+
+Relizy is getting small models that run on the machine of the user, without cloud or API key. The first one, a commit classifier, will label the commits of the repositories that do not follow the conventional commits (`feature`, `fix`, `refacto`, `doc`, `perf`, `test`, `build`, `ci`, `chore`). A breaking change is not one of them: it is found by the static analysis of the public API. Their training tooling lives in `packages/relizy/scripts/`, it is not part of the published package.
+
+### Commit Classifier Dataset
+
+The training examples come from the history of repositories that already use the conventional commits: the type of each commit is the label, and the model learns to find it from the rest. Three steps, in `packages/relizy/scripts/commit-classifier/`:
+
+```bash
+# 1. Local clones: yours, and third-party repositories cloned with `git clone --bare`
+pnpm dataset:commits ~/dev ~/datasets/clones --since maz-ui=2022-01-01 --out clones.dataset.jsonl
+
+# 2. CommitSuite, a dataset of conventional commits with their files and line counts
+git clone --depth 1 https://github.com/security-pride/CommitSuite ~/datasets/CommitSuite
+pnpm dataset:commitsuite ~/datasets/CommitSuite --out commitsuite.dataset.jsonl
+
+# 3. Merge, check the licenses, set the test set apart, write the manifest
+pnpm dataset:build clones.dataset.jsonl commitsuite.dataset.jsonl --own LouisMazel
+```
+
+#### Extraction
+
+`dataset:commits` reads `git log --all --no-merges` of each repository (bare clones work) and writes one JSON line per conventional commit:
+
+```json
+{ "repo": "LouisMazel/maz-ui", "source": "git", "hash": "81ff1b9…", "message": "the development warnings no longer throw without bundler", "files": ["packages/maz-ui/src/components/MazAvatar.vue", "packages/maz-ui/src/utils/warnDeprecated.ts"], "stats": { "filesChanged": 2, "insertions": 5, "deletions": 2, "binaryFiles": 0 }, "label": "fix", "type": "fix", "breaking": false }
+```
+
+- `message`: the subject without its type, scope, `!`, emoji and references (`(#12)`, `#12`, `GH-12`, `!12`, `closes #12`, pull request URLs), so the model cannot read the answer in its input. The body is left out, `BREAKING CHANGE:` would give the label away
+- `files` and `stats`: the paths touched (the new one for a rename) and the totals of `--numstat`
+- `repo`: `owner/name` from the `origin` remote, else the name of the directory; `source`: `git` or `commitsuite`
+- `label`: from the type (`feat` → `feature`, `refactor` → `refacto`, `docs` → `doc`, `style` → `chore`, `deps` → `build`...); `type` keeps the type as written, to revise the mapping; `breaking` is `true` for a `!` or a `BREAKING CHANGE:`, for information only
+- `suspect` (only when it applies): the label contradicts the files, a likely wrong type: `code-label-on-docs-only` (a `feat`, `fix`, `refactor` or `perf` on Markdown only), `code-label-on-dependencies-only` (the same, or a `docs`, on `package.json` and lockfiles only), `test-without-test-files`, `ci-without-ci-files`. A `docs` commit changing code is not suspect: a JSDoc, a comment or the site of the docs are docs too
+
+Then it prints the number of examples per label, with the suspect ones, and the ignored commits by reason: written by a bot (Renovate, Dependabot, GitHub Actions, a project robot such as `angular-robot`...), not conventional, type outside the mapping (the most frequent ones are listed: add them to `TYPE_TO_LABEL` of `scripts/commit-classifier/dataset.ts` when they make sense), release commits (`chore(release): …`, `release: 1.2.0`), message empty once cleaned, mass changes, and commits already read from another repository (forks, copies). The `*.dataset.jsonl` files are gitignored.
+
+The labels are only as good as the discipline of the history, so check it before training:
+
+| Option                  | Default           | Effect                                                                                                                        |
+| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--since <date>`        | the whole history | Only the commits after the date, for every repository                                                                         |
+| `--since <repo>=<date>` |                   | The same for one repository (`owner/name` or `name`), e.g. `maz-ui=2022-01-01` when its conventions start in 2022; repeatable |
+| `--max-files <n>`       | `100`             | A commit touching more files is a mass change (formatting, move, generated files) and gives no example; `0` for no limit      |
+| `--strict`              | off               | Leaves the `suspect` examples out instead of keeping them flagged                                                             |
+
+#### Third-party Sources
+
+Well-kept public repositories add examples to the rare labels (`perf`, `build`, `ci`) and other writing styles than yours, so the model does not only learn one style. The rules: permissive licenses only, the test set made of repositories the training never sees, and every source in a manifest.
+
+- **CommitSuite** (`dataset:commitsuite`): its commits keep their files and line counts, and go through the same cleaning as the clones. CommitSuite declares no license of its own: the license of each of its source repositories is checked by `dataset:build`
+- **oov-commit-classification**: its data has the messages only, without files: clone its 26 repositories (listed in its `configs/repos.yaml`) and run `dataset:commits` on them instead
+
+#### Build
+
+`dataset:build` merges the outputs of both steps and writes in `--out-dir` (`commit-classifier-dataset/` by default, gitignored):
+
+- `test.dataset.jsonl`: whole repositories (15 % of the examples, `--test-share`), drawn in a stable order (`--seed`), never a repository bigger than a quarter of it; `--test-repo owner/name` forces one in. The repositories of `--own` owners stay in the training set. It keeps the real distribution of the labels, to measure the macro-F1 on repositories the model has never seen
+- `train.full.dataset.jsonl`: all the other examples, before balancing
+- `train.dataset.jsonl`: the training set, balanced: each label is cut to `--max-per-label` examples (15000; `0` for no balancing) and the small labels are kept whole; inside a label, the examples are shared fairly between the repositories, and one repository gives at most `--max-repo-share` of the examples of the label before the cut (10 %, so a bit more of a small label once cut), so a large project does not impose its style
+- `manifest.json`: each repository with its URL, sources, license and license files, main language, number of examples and split (`train`, `test`, or `excluded` with the reason), and the third-party datasets used
+- `licenses.json`: the cache of the licenses, read from the license files at the root of each repository (a shallow clone without blobs, so the checks are quick and need no GitHub token). Kept: MIT, Apache 2.0, BSD and ISC. Excluded: copyleft (GPL, AGPL, LGPL, MPL, SSPL, BSL, EPL, EUPL), another or an unreadable license, no license file. A repository with several license files is kept only when all of them are permissive. The repositories of `--own` owners are kept whatever their license
+
+The same commit read from two sources, or the same change committed again (cherry-pick), is kept once. The `suspect` examples are left out of both sets (`--keep-suspect` keeps them). The script then prints the count per label of the training set before and after balancing, and of the test set. The licenses of the software cover the code, not clearly the commit metadata: the permissive repositories reduce the risk, they do not remove it.
 
 ## Pull Request Process
 

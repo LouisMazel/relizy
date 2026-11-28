@@ -27,6 +27,7 @@ In `packages/relizy/`:
 
 - `pnpm relizy <command>` (alias `pnpm rly`) runs the CLI from the sources, from the root, e.g. `pnpm relizy bump --patch --dry-run` to preview a bump without side effects (`--log-level debug` for the detailed flow)
 - The root scripts (`pnpm build`, `dev`, `typecheck`, `lint`, `test:unit` and their variants) run cached Nx tasks (`nx.json`; the graph builds core before relizy and generates `packages/relizy/agent-docs/` first), `pnpm exec nx affected -t <target>` only what changed since `develop`; coverage is one root vitest run, for a single `coverage/lcov.info`. One test file: `pnpm vitest run <path>` (after a first `pnpm test:unit`). Never `nx release`: relizy owns the versions
+- `pnpm dataset:commits <repos...>` builds the training dataset of the local commit classifier from git clones, `dataset:commitsuite` imports CommitSuite, `dataset:build` merges them, checks the licenses and sets the test repositories apart (`packages/relizy/scripts/commit-classifier/`, "Local Models" of `CONTRIBUTING.md`)
 - The packages read `@relizy/core` from its sources (`paths` of `tsconfig.json`, alias of the vitest config of relizy); the built `dist` is only needed to run the published bin
 
 ## Architecture
