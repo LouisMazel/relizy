@@ -1,5 +1,6 @@
-import type { ReleaseWorkflow, StagedPublishing, TrustedPublisher, TrustedPublisherSource, TrustResult } from '@relizy/core'
+import type { ReleaseWorkflow, StagedPublishing, TrustedPublisher, TrustedPublisherSource, TrustResult, WebAuthHandler } from '@relizy/core'
 import type { ResolvedRelizyConfig } from '../core'
+import type { CommandNote } from '../core/release-ui'
 import type { TrustOptions, TrustResponse } from '../types'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -10,10 +11,11 @@ import { loadFile, writeFile } from 'magicast'
 import { getDefaultExportOptions } from 'magicast/helpers'
 import * as semver from 'semver'
 import { loadRelizyConfig } from '../core'
-import { askStagedQuestion, createInteractiveNpmRunner, createOtpAsker, isInteractiveTerminal } from '../core/approve'
+import { askStagedQuestion } from '../core/approve'
 import { runWithEvents } from '../core/events'
 import { previewRelease } from '../core/release-preview'
 import { emitStepItem } from '../core/step-data'
+import { createOtpAsker, getWebAuthHandler } from '../core/two-factor'
 import { readPublishablePackages } from './publish'
 import { runCommand } from './run-command'
 
@@ -134,8 +136,10 @@ function sameEnvironment(publisher: TrustedPublisher, source: TrustedPublisherSo
   return source.type === 'circleci' || (publisher.environment ?? '') === (source.environment ?? '')
 }
 
+/** npm adds the staged publish to a configuration allowing the direct publish: only the direct publish tells two configurations apart then */
 function samePermissions(publisher: TrustedPublisher, permissions: { allowPublish: boolean, allowStagePublish: boolean }): boolean {
-  return Boolean(publisher.allowPublish) === permissions.allowPublish && Boolean(publisher.allowStagePublish) === permissions.allowStagePublish
+  return Boolean(publisher.allowPublish) === permissions.allowPublish
+    && (permissions.allowPublish || Boolean(publisher.allowStagePublish) === permissions.allowStagePublish)
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -181,13 +185,13 @@ function proposeStaged(stagedOnly: string[], all: string[]): StagedPublishing | 
     : { packages: stagedOnly }
 }
 
-async function trustPackage({ name, config, wanted, options, otp, runner }: {
+async function trustPackage({ name, config, wanted, options, otp, onWebAuth }: {
   name: string
   config: ResolvedRelizyConfig
   wanted: WantedPublisher[]
   options: TrustOptions
   otp: { get: () => Promise<string | undefined>, refresh: () => Promise<string | undefined> }
-  runner?: ReturnType<typeof createInteractiveNpmRunner>
+  onWebAuth?: WebAuthHandler
 }): Promise<TrustResult> {
   const call = async <T>(run: (code: string | undefined) => Promise<T>): Promise<T> => {
     const code = await otp.get()
@@ -204,7 +208,7 @@ async function trustPackage({ name, config, wanted, options, otp, runner }: {
   const base = {
     cwd: config.cwd,
     packageName: name,
-    runner,
+    onWebAuth,
     logger,
   }
 
@@ -288,6 +292,64 @@ function describeSource(source: TrustedPublisherSource): string {
     : ''}`
 }
 
+function describePermissions({ allowPublish, allowStagePublish }: { allowPublish?: boolean, allowStagePublish?: boolean }): string {
+  return [allowPublish && 'direct publish', allowStagePublish && 'staged publish'].filter(Boolean).join(' and ') || 'no publish'
+}
+
+function describePublisher(publisher: TrustedPublisher): string {
+  const where = [publisher.repository, publisher.file].filter(Boolean).join(' ')
+  const provider = { github: 'GitHub', gitlab: 'GitLab', circleci: 'CircleCI' }[publisher.type] ?? publisher.type
+  return `${provider} ${where}${publisher.environment
+    ? ` (environment ${publisher.environment})`
+    : ''}, ${describePermissions(publisher)}`
+}
+
+const TRUST_STATUS_LABELS: Record<TrustResult['status'], string> = {
+  created: 'created',
+  replaced: 'replaced',
+  exists: 'already set up',
+  differs: 'differs, not changed',
+  missing: 'not on npm',
+  failed: 'failed',
+}
+
+/** One box per package: what is set up on npm now, and why it was not changed */
+function getTrustNotes(results: TrustResult[]): CommandNote[] {
+  return results.map(result => ({
+    title: `${result.name}: ${TRUST_STATUS_LABELS[result.status]}`,
+    lines: result.publishers?.length
+      ? result.publishers.map(describePublisher)
+      : ['No configuration of these workflows'],
+    footer: result.reason
+      ? [result.reason]
+      : [],
+    failed: result.status === 'failed',
+  }))
+}
+
+function describeTrustCounts(results: TrustResult[]): string {
+  const counts = ([
+    'created',
+    'replaced',
+    'exists',
+    'differs',
+    'missing',
+    'failed',
+  ] as const)
+    .map(status => [status, results.filter(result => result.status === status).length] as const)
+    .filter(([, count]) => count > 0)
+  return counts.map(([status, count]) => `${count} ${TRUST_STATUS_LABELS[status]}`).join(', ') || 'Nothing to set up'
+}
+
+function getTrustMessage(results: TrustResult[], created: string[]): string {
+  const plural = (count: number) => `${count} package${count === 1
+    ? ''
+    : 's'}`
+  return created.length === 0 && results.every(result => result.status === 'exists')
+    ? `Trusted publishing already set up for ${plural(results.length)}`
+    : `Trusted publishing set up for ${plural(created.length)}`
+}
+
 /** The packages created now that no release is pending for: their configuration expires in 2 days unused */
 async function getExpiringPackages(config: ResolvedRelizyConfig, created: string[]): Promise<string[]> {
   if (created.length === 0) {
@@ -304,13 +366,13 @@ async function getExpiringPackages(config: ResolvedRelizyConfig, created: string
 }
 
 /** Sets up the packages one by one, with the 2 s pause of the docs of npm between two of them */
-async function trustPackages({ names, config, wanted, options, otp, runner }: {
+async function trustPackages({ names, config, wanted, options, otp, onWebAuth }: {
   names: string[]
   config: ResolvedRelizyConfig
   wanted: WantedPublisher[]
   options: TrustOptions
   otp: { get: () => Promise<string | undefined>, refresh: () => Promise<string | undefined> }
-  runner?: ReturnType<typeof createInteractiveNpmRunner>
+  onWebAuth?: WebAuthHandler
 }): Promise<TrustResult[]> {
   const done: TrustResult[] = []
   for (const [index, name] of names.entries()) {
@@ -323,7 +385,7 @@ async function trustPackages({ names, config, wanted, options, otp, runner }: {
           wanted,
           options,
           otp,
-          runner,
+          onWebAuth,
         }).catch((error: unknown): TrustResult => ({ name, status: 'failed', reason: getErrorMessage(error).split('\n')[0] ?? 'failed' }))
     done.push(result)
     emitStepItem('trust', {
@@ -437,9 +499,9 @@ function runTrust(options: TrustOptions): Promise<TrustResponse> {
           message: `Would set up the trusted publishing of ${names.length} package${names.length > 1
             ? 's'
             : ''}`,
-          details: wanted.flatMap(({ source, permissions }) => names.map((name) => {
-            const needed = permissions ?? getPackagePermissions(config.publish.staged, name)
-            return `${name}: ${describeSource(source)}, ${[needed.allowPublish && 'direct publish', needed.allowStagePublish && 'staged publish'].filter(Boolean).join(' and ')}`
+          notes: names.map(name => ({
+            title: `${name}: would set up`,
+            lines: wanted.map(({ source, permissions }) => `${describeSource(source)}, ${describePermissions(permissions ?? getPackagePermissions(config.publish.staged, name))}`),
           })),
         })
         return {
@@ -456,30 +518,22 @@ function runTrust(options: TrustOptions): Promise<TrustResponse> {
         throw new Error(`relizy trust needs npm ${STAGED_PUBLISHING_NPM_VERSION} or later (npm trust), npm ${npmVersion} is installed: run "npm install -g npm@latest"`)
       }
 
-      const asker = createOtpAsker({ registry: NPMJS, purpose: 'trust', otp: options.otp })
-      let code: string | undefined
-      let asked = false
+      // Tried without code first: npm offers its web 2FA, a code is asked only when npm needs one
+      const asker = createOtpAsker({ registry: NPMJS, purpose: 'trust' })
+      let code = options.otp
       const otp = {
-        get: async () => {
-          if (!asked) {
-            asked = true
-            code = await asker({ count: names.length })
-          }
-          return code
-        },
+        get: () => Promise.resolve(code),
         refresh: async () => {
           code = await asker({ count: names.length })
           return code
         },
       }
-      const runner = isInteractiveTerminal()
-        ? createInteractiveNpmRunner()
-        : undefined
+      const onWebAuth = getWebAuthHandler()
 
       const results = await ui.step({
         name: 'trust',
         running: 'Setting up the trusted publishers',
-        done: done => `${done.filter(result => result.status === 'created' || result.status === 'replaced').length} created, ${done.filter(result => result.status === 'exists').length} already set up`,
+        done: done => describeTrustCounts(done),
         failed: done => done.some(result => result.status === 'failed'),
         data: done => ({ packages: done }),
         run: () => trustPackages({
@@ -488,7 +542,7 @@ function runTrust(options: TrustOptions): Promise<TrustResponse> {
           wanted,
           options,
           otp,
-          runner,
+          onWebAuth,
         }),
       })
 
@@ -504,15 +558,13 @@ function runTrust(options: TrustOptions): Promise<TrustResponse> {
       })
 
       ui.complete({
-        message: `Trusted publishing set up for ${created.length} package${created.length === 1
-          ? ''
-          : 's'}`,
+        message: getTrustMessage(results, created),
         failed: results.length > 0 && results.every(result => result.status === 'failed'),
-        details: results.filter(result => result.reason).map(result => `${result.name}: ${result.status} (${result.reason})`),
+        notes: getTrustNotes(results),
         warnings: expiring.length > 0
-          ? [`npm removes a new trusted publisher unused for 2 days: ${expiring.join(', ')} ha${expiring.length > 1
+          ? [`npm removes a new trusted publisher unused for 2 days, and ${expiring.join(', ')} ha${expiring.length > 1
               ? 've'
-              : 's'} no release pending, run "relizy trust" again before their next release`]
+              : 's'} no release pending: run "relizy trust" again before the next release`]
           : [],
       })
 
@@ -534,5 +586,5 @@ function runTrust(options: TrustOptions): Promise<TrustResponse> {
  * maintainer: idempotent, `replace` recreates the configurations that differ
  */
 export function trust(options: TrustOptions = {}): Promise<TrustResponse> {
-  return runWithEvents(options.onProgress, () => withGitCache(() => runTrust(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt })
+  return runWithEvents(options.onProgress, () => withGitCache(() => runTrust(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt, onWebAuth: options.onWebAuth })
 }

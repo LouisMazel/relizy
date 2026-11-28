@@ -1,4 +1,4 @@
-import type { StagedEntry } from '@relizy/core'
+import type { StagedEntry, WebAuthHandler } from '@relizy/core'
 import type { ResolvedRelizyConfig } from '../core'
 import type { ApproveStepPackage } from '../core/events'
 import type { ReleaseUi } from '../core/release-ui'
@@ -7,10 +7,13 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { approveStagedVersions, assertInteractiveNpmAuth, getStagedApprovalUrl, isNpmjsRegistry, isOtpError, listStagedVersions, PUBLISH_DEPENDENCY_FIELDS, readDependencyFields, rejectStagedVersion, withGitCache } from '@relizy/core'
 import { getNpmRegistry, loadRelizyConfig, resolveRegistryTargetsForPackages } from '../core'
-import { askStagedQuestion, createInteractiveNpmRunner, createOtpAsker, isInteractiveTerminal } from '../core/approve'
+import { askStagedQuestion } from '../core/approve'
 import { runWithEvents } from '../core/events'
+import { reportProgress } from '../core/progress'
 import { askMultiselect } from '../core/prompts'
+import { promptInReleaseUi } from '../core/release-ui'
 import { emitStepItem } from '../core/step-data'
+import { createOtpAsker, getWebAuthHandler, isInteractiveTerminal } from '../core/two-factor'
 import { readPublishablePackages } from './publish'
 import { runCommand } from './run-command'
 
@@ -63,13 +66,13 @@ async function selectVersions(entries: StagedEntry[], action: 'approve' | 'rejec
     throw new Error(`relizy stage ${action} needs the packages to ${action}: pass their names or --all`)
   }
 
-  const ids = await askMultiselect({
+  const ids = await promptInReleaseUi(() => askMultiselect({
     message: `Staged versions to ${action}`,
     options: entries.map(entry => ({ value: entry.stageId, label: `${entry.name}@${entry.version}`, hint: `${entry.tag}, ${entry.status}` })),
     initialValues: action === 'approve'
       ? entries.map(entry => entry.stageId)
       : [],
-  })
+  }))
   return entries.filter(entry => ids.includes(entry.stageId))
 }
 
@@ -81,15 +84,16 @@ function describeEntries(entries: StagedEntry[]): string[] {
     : ''}) ${entry.stageId}`)
 }
 
-async function rejectVersions({ config, registry, versions, otp, runner }: {
+async function rejectVersions({ config, registry, versions, otp, onWebAuth }: {
   config: ResolvedRelizyConfig
   registry: string
   versions: StagedEntry[]
   otp?: string
-  runner?: ReturnType<typeof createInteractiveNpmRunner>
+  onWebAuth?: WebAuthHandler
 }): Promise<ApproveStepPackage[]> {
-  const getOtp = createOtpAsker({ registry, purpose: 'reject', otp })
-  let code = await getOtp({ count: versions.length })
+  // Tried without code first: npm offers its web 2FA, a code is asked only when npm needs one
+  const getOtp = createOtpAsker({ registry, purpose: 'reject' })
+  let code = otp
   const results: ApproveStepPackage[] = []
 
   for (const version of versions) {
@@ -102,7 +106,7 @@ async function rejectVersions({ config, registry, versions, otp, runner }: {
           registry,
           stageId: version.stageId,
           otp: code,
-          runner,
+          onWebAuth,
           logger,
         })
       }
@@ -116,7 +120,7 @@ async function rejectVersions({ config, registry, versions, otp, runner }: {
           registry,
           stageId: version.stageId,
           otp: code,
-          runner,
+          onWebAuth,
           logger,
         })
       }
@@ -216,9 +220,10 @@ function runStage(options: StageOptions): Promise<StageResponse> {
         return { action, staged: versions, results: [] }
       }
 
-      const runner = isInteractiveTerminal()
-        ? createInteractiveNpmRunner()
-        : undefined
+      const onWebAuth = getWebAuthHandler()
+      const dependencies = action === 'approve'
+        ? getDependencies(config)
+        : new Map<string, string[]>()
 
       if (action === 'reject') {
         const answer = await askStagedQuestion({
@@ -262,9 +267,10 @@ function runStage(options: StageOptions): Promise<StageResponse> {
                 name: version.name,
                 version: version.version,
                 stageId: version.stageId,
-                dependencies: getDependencies(config).get(version.name) ?? [],
+                dependencies: dependencies.get(version.name) ?? [],
               })),
-              getOtp: createOtpAsker({ registry, purpose: 'approve', otp: options.otp }),
+              otp: options.otp,
+              getOtp: createOtpAsker({ registry, purpose: 'approve' }),
               onItem: result => emitStepItem('approve', {
                 name: `${result.name}@${result.version}`,
                 status: result.status === 'approved'
@@ -277,7 +283,8 @@ function runStage(options: StageOptions): Promise<StageResponse> {
                   ? { url: result.url }
                   : {}),
               }),
-              runner,
+              onValidating: ({ name, version }) => reportProgress(`npm is scanning ${name}@${version} for malware, waiting (up to 5 minutes)`),
+              onWebAuth,
               logger,
             })).map(result => ({ ...result }))
           : rejectVersions({
@@ -285,7 +292,7 @@ function runStage(options: StageOptions): Promise<StageResponse> {
               registry,
               versions,
               otp: options.otp,
-              runner,
+              onWebAuth,
             }),
       })
 
@@ -319,5 +326,5 @@ function runStage(options: StageOptions): Promise<StageResponse> {
  * never a CI or trusted publishing
  */
 export function stage(options: StageOptions): Promise<StageResponse> {
-  return runWithEvents(options.onProgress, () => withGitCache(() => runStage(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt })
+  return runWithEvents(options.onProgress, () => withGitCache(() => runStage(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt, onWebAuth: options.onWebAuth })
 }

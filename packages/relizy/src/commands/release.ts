@@ -443,6 +443,7 @@ export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseR
     onConfirm: options.onConfirm,
     onOtp: options.onOtp,
     onPrompt: options.onPrompt,
+    onWebAuth: options.onWebAuth,
     command: 'release',
   })
 }

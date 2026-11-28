@@ -12,7 +12,7 @@ import { Command, InvalidArgumentError, Option } from 'commander'
 import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social, stage, sync, trust } from './commands'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
-import { enableCliUi } from './core/release-ui'
+import { enableCliUi, moveCliUiToStderr } from './core/release-ui'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
 // The other commands start with their own title line
@@ -468,6 +468,9 @@ const stageCommand = program
 
 /** Runs a subcommand of `relizy stage` with the global options */
 async function runStageCommand(action: 'list' | 'approve' | 'reject', packages: string[], options: { all?: boolean, otp?: string, json?: boolean }) {
+  if (options.json) {
+    moveCliUiToStderr()
+  }
   try {
     const response = await stage({
       action,
@@ -530,6 +533,16 @@ program
   .option('--circleci-context-id <id...>', 'CircleCI context ids (Organization Settings > Contexts)')
   .action(async (packages: string[], options) => {
     try {
+      const circleciFlags = {
+        '--circleci-org-id': options.circleciOrgId,
+        '--circleci-project-id': options.circleciProjectId,
+        '--circleci-pipeline-definition-id': options.circleciPipelineDefinitionId,
+        '--circleci-vcs-origin': options.circleciVcsOrigin,
+      }
+      const missingCircleci = Object.entries(circleciFlags).filter(([, value]) => !value).map(([flag]) => flag)
+      if (missingCircleci.length > 0 && missingCircleci.length < 4) {
+        throw new Error(`A CircleCI trusted publisher needs all of --circleci-org-id, --circleci-project-id, --circleci-pipeline-definition-id and --circleci-vcs-origin: missing ${missingCircleci.join(', ')}`)
+      }
       const circleci = options.circleciOrgId
         ? {
             orgId: options.circleciOrgId,

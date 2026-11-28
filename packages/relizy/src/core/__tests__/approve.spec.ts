@@ -2,10 +2,11 @@ import type { StagedVersion } from '@relizy/core'
 import process from 'node:process'
 import { approveStagedVersions, listStagedVersions } from '@relizy/core'
 import { createMockConfig } from '../../../tests/mocks'
-import { approveRunVersions, createOtpAsker, describeApproval, getApprovalBlocker, runApprovalStep } from '../approve'
+import { approveRunVersions, describeApproval, getApprovalBlocker, runApprovalStep } from '../approve'
 import { runWithEvents } from '../events'
 import { askConfirm } from '../prompts'
 import { getStagedVersions, recordStagedVersion } from '../staging'
+import { createOtpAsker } from '../two-factor'
 
 vi.mock('@relizy/core', async (importActual) => {
   const actual = await importActual<typeof import('@relizy/core')>()

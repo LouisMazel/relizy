@@ -218,8 +218,8 @@ describe('Given relizy stage', () => {
     Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true })
   })
 
-  it('Then asks the code again when npm refuses it, and reports a version npm fails to reject', async () => {
-    const onOtp = vi.fn().mockResolvedValueOnce('111111').mockResolvedValueOnce('222222')
+  it('Then tries without code, asks it once npm needs it, and reports a version npm fails to reject', async () => {
+    const onOtp = vi.fn().mockResolvedValueOnce('111111')
     vi.mocked(rejectStagedVersion)
       .mockRejectedValueOnce(new Error('EOTP one-time password required'))
       .mockResolvedValueOnce()
@@ -232,7 +232,8 @@ describe('Given relizy stage', () => {
       onPrompt: () => true,
     })
 
-    expect(onOtp).toHaveBeenCalledTimes(2)
+    expect(onOtp).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(rejectStagedVersion).mock.calls.map(([options]) => options.otp)).toEqual([undefined, '111111', '111111'])
     expect(response.results).toEqual([
       {
         name: '@s/core',
