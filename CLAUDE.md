@@ -48,3 +48,8 @@ Before writing a helper, search the exports of core and the modules of `src/core
 `packages/relizy/src/index.ts` lists the public API explicitly (the commands, `defineConfig`, `loadRelizyConfig`, the errors, `lintCommitMessage` and the types), never `export *`: a new export is a decision, guarded by `src/__tests__/index.spec.ts`, and shows up in the typedoc of the docs.
 
 `@relizy/core` is a public API consumed by other projects: never change the signature or the behavior of an export without a major bump, and add a capability as an option or an extension of an existing function. Its `packages/core/src/index.ts` lists the exports explicitly (never `export *`), guarded by `packages/core/src/__tests__/index.spec.ts`; core only holds code relizy uses itself. Its API reference for agents is generated from `index.ts` and the JSDoc of the exports into the docs bundle of the MCP server (`core/*` pages).
+
+## Docs
+
+- A change of behavior updates, in the same work, the VitePress docs (`docs/src`), the agent docs generated from them (`packages/relizy/agent-docs/`) and the MCP server (`src/core/mcp/`: tools, rules, knowledge)
+- Complete but simple to read: the essential first, plain words, short sentences, nothing verbose
