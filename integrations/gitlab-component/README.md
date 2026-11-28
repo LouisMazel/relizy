@@ -71,7 +71,7 @@ Its inputs: `stage` (`test`), `image`, `args`, `setup`, `package-manager`, `reli
 
 ## Outputs
 
-The `dotenv` artifact gives `RELIZY_RELEASED`, `RELIZY_STATUS`, `RELIZY_VERSION`, `RELIZY_TAGS`, `RELIZY_PACKAGES`, `RELIZY_URLS`... to the next jobs. See [the outputs](https://relizy.dev/guide/gitlab-ci#outputs-and-summary).
+The `dotenv` artifact gives `RELIZY_RELEASED`, `RELIZY_STATUS`, `RELIZY_VERSION`, `RELIZY_TAGS`, `RELIZY_PACKAGES`, `RELIZY_URLS`... to the next jobs; with staged publishing (`publish.staged`, `args: --staged`), also `RELIZY_STAGED`, `RELIZY_STAGE_IDS`, `RELIZY_AWAITING_APPROVAL` and `RELIZY_PUBLISH_AUTH` (absent when nothing was staged). The npm token is not needed with trusted publishing (`relizy trust`). See [the outputs](https://relizy.dev/guide/gitlab-ci#outputs-and-summary).
 
 ## Versions
 
