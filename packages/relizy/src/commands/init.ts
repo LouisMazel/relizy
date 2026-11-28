@@ -520,6 +520,46 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   note(rows.join('\n'), 'Changes')
 }
 
+/** The files a package manager changes when it adds relizy */
+const INSTALL_FILES = ['package.json', 'pnpm-lock.yaml']
+
+/** The content of each file before the install, `undefined` when it does not exist */
+function snapshotFiles(cwd: string, files: string[]): Map<string, string | undefined> {
+  return new Map(files.map(file => [
+    file,
+    existsSync(join(cwd, file))
+      ? readFileSync(join(cwd, file), 'utf8')
+      : undefined,
+  ]))
+}
+
+function restoreFiles(cwd: string, snapshot: Map<string, string | undefined>): void {
+  for (const [file, content] of snapshot) {
+    if (content === undefined) {
+      rmSync(join(cwd, file), { force: true })
+    }
+    else {
+      writeFileSync(join(cwd, file), content)
+    }
+  }
+}
+
+/**
+ * pnpm refused to finish the install: dependencies of the project have build
+ * scripts awaiting approval (`strictDepBuilds`), relizy has none
+ */
+function isIgnoredBuildsError(error: unknown): boolean {
+  const text = [
+    error instanceof Error
+      ? error.message
+      : String(error),
+    (error as { stderr?: unknown } | undefined)?.stderr,
+    (error as { stdout?: unknown } | undefined)?.stdout,
+  ].filter(value => typeof value === 'string').join('\n')
+
+  return text.includes('ERR_PNPM_IGNORED_BUILDS')
+}
+
 /** Never throws: a failed install tells the command to run */
 async function installRelizy(cwd: string, command: string): Promise<void> {
   // Without terminal (CI), a spinner writes each of its frames
@@ -527,6 +567,7 @@ async function installRelizy(cwd: string, command: string): Promise<void> {
     ? spinner()
     : { start: log.step, stop: log.success, error: log.warn }
   progress.start(`Installing relizy (${command})`)
+  const snapshot = snapshotFiles(cwd, INSTALL_FILES)
 
   try {
     await execPromise(command, {
@@ -538,6 +579,21 @@ async function installRelizy(cwd: string, command: string): Promise<void> {
     progress.stop('Installed relizy')
   }
   catch (error) {
+    if (isIgnoredBuildsError(error)) {
+      // pnpm already wrote relizy in the package.json and the lockfile: undone, nothing half installed
+      let restored = 'package.json and pnpm-lock.yaml restored'
+      try {
+        restoreFiles(cwd, snapshot)
+      }
+      catch (restoreError) {
+        restored = `package.json and pnpm-lock.yaml could not be restored (${restoreError instanceof Error
+          ? restoreError.message
+          : String(restoreError)}): remove relizy from them`
+      }
+      progress.error(`relizy not installed - pnpm stopped on build scripts of dependencies of the project awaiting approval (ERR_PNPM_IGNORED_BUILDS), ${restored}: run "pnpm approve-builds", then "${command}"`)
+      return
+    }
+
     const message = error instanceof Error
       ? error.message
       : String(error)
