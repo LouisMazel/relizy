@@ -4,6 +4,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import micromatch from 'micromatch'
+import { withSignalCleanup } from './signal-cleanup'
 
 /**
  * The registries of the packages, the `.npmrc`, and the temporary `.npmrc`
@@ -234,8 +235,6 @@ function buildNpmrcEntries({
   return entries
 }
 
-const NPMRC_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
-
 /**
  * Run `fn` with the registry target's auth token and scope registry
  * temporarily written to the `.npmrc` of `cwd`, then restore the original file
@@ -366,13 +365,7 @@ async function withInjectedNpmrc<T>(npmrcPath: string, entries: Array<{ key: str
     NPMRC_BLOCK_END,
   ].join('\n')}\n`
 
-  let restored = false
   const restore = () => {
-    if (restored) {
-      return
-    }
-    restored = true
-
     if (existed) {
       writeFileSync(npmrcPath, original)
     }
@@ -382,31 +375,10 @@ async function withInjectedNpmrc<T>(npmrcPath: string, entries: Array<{ key: str
   }
 
   // The token must not stay on disk when the process stops before the end
-  // (Ctrl+C, kill, closed terminal, process.exit): restore, then let the
-  // signal do what it would have done
-  function onSignal(signal: NodeJS.Signals) {
-    restore()
-    removeListeners()
-    process.kill(process.pid, signal)
-  }
-  function removeListeners() {
-    process.removeListener('exit', restore)
-    for (const signal of NPMRC_SIGNALS) {
-      process.removeListener(signal, onSignal)
-    }
-  }
-
-  process.once('exit', restore)
-  for (const signal of NPMRC_SIGNALS) {
-    process.once(signal, onSignal)
-  }
-
-  try {
+  // (Ctrl+C, kill, closed terminal, process.exit): restored, then the signal
+  // does what it would have done
+  return await withSignalCleanup(restore, async () => {
     writeFileSync(npmrcPath, nextContent)
     return await fn()
-  }
-  finally {
-    restore()
-    removeListeners()
-  }
+  })
 }

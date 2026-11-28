@@ -35,6 +35,11 @@ describe('Given npm trusted publishing', () => {
       expect(getTrustedPublishingProvider({ GITLAB_CI: 'true', NPM_ID_TOKEN: 'jwt' })).toBe('GitLab CI')
       expect(getTrustedPublishingProvider({ GITLAB_CI: 'true' })).toBeUndefined()
     })
+
+    it('Then detects CircleCI with the NPM_ID_TOKEN id token', () => {
+      expect(getTrustedPublishingProvider({ CIRCLECI: 'true', NPM_ID_TOKEN: 'jwt' })).toBe('CircleCI')
+      expect(getTrustedPublishingProvider({ CIRCLECI: 'true' })).toBeUndefined()
+    })
   })
 
   describe('When a registry is published', () => {
