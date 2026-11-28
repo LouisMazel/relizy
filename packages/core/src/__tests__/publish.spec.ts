@@ -80,6 +80,44 @@ describe('Given getPublishCommand function', () => {
       .toBe('npm publish --tag latest --registry https://registry.npmjs.org/ --otp 123456 --access public --yes --provenance --dry-run')
   })
 
+  it.each([
+    ['npm', false, 'npm publish --tag next --registry https://npm.example.com/ --otp 654321 --access restricted --yes --provenance --dry-run'],
+    ['pnpm', false, 'pnpm publish --tag next --registry https://npm.example.com/ --otp 654321 --access restricted --no-git-checks --provenance --dry-run'],
+    ['yarn', false, 'yarn publish --tag next --registry https://npm.example.com/ --otp 654321 --access restricted --non-interactive --provenance --dry-run'],
+    ['yarn', true, 'yarn npm publish --tag next --registry https://npm.example.com/ --otp 654321 --access restricted --non-interactive --no-git-checks --provenance --dry-run'],
+    ['bun', false, 'bun publish --tag next --registry https://npm.example.com/ --otp 654321 --access restricted --provenance --dry-run'],
+  ] as const)('Then keeps the %s command (berry: %s) with every option', async (packageManager, berry, command) => {
+    const { isYarnBerry } = await import('../package-manager')
+    vi.mocked(isYarnBerry).mockReturnValue(berry)
+
+    expect(getPublishCommand({
+      packageManager,
+      tag: 'next',
+      registryTarget: { registry: 'https://npm.example.com/', access: 'restricted', otp: '111111' },
+      otp: '654321',
+      dryRun: true,
+      cwd: '/project',
+      extraArgs: ['--provenance'],
+    })).toBe(command)
+
+    vi.mocked(isYarnBerry).mockReturnValue(false)
+  })
+
+  it.each([
+    ['npm', 'npm publish --tag latest --yes'],
+    ['pnpm', 'pnpm publish --tag latest --no-git-checks'],
+    ['yarn', 'yarn publish --tag latest --non-interactive'],
+    ['bun', 'bun publish --tag latest'],
+  ] as const)('Then keeps the %s command without registry, access nor one-time password', (packageManager, command) => {
+    expect(getPublishCommand({
+      packageManager,
+      tag: 'latest',
+      registryTarget: { registry: '' },
+      dryRun: false,
+      cwd: '/project',
+    })).toBe(command)
+  })
+
   it('Then publishes with yarn npm on Yarn Berry', async () => {
     const { isYarnBerry } = await import('../package-manager')
     vi.mocked(isYarnBerry).mockReturnValueOnce(true).mockReturnValueOnce(true)
