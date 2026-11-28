@@ -24,6 +24,10 @@ inputs:
     description: 'More arguments for the command, e.g. "--tag beta --preid beta" or "--config standalone" for relizy release, "--quiet" for relizy commitlint'
     required: false
     default: ''
+  report-status:
+    description: 'Set the commit status relizy/release on the released commit at each step of a release, to follow it while it runs (release command only). The job needs statuses: write, else one warning. Skipped, with a notice, when the relizy run does not know --report-status. "false" turns it off'
+    required: false
+    default: 'true'
   merge-preview:
     description: 'Deprecated: use command: merge-preview'
     required: false
@@ -241,6 +245,7 @@ runs:
         RELEASE_TYPE: ${{ inputs.release-type }}
         RELIZY_PROFILE: ${{ inputs.profile }}
         RELIZY_ARGS: ${{ inputs.args }}
+        RELIZY_REPORT_STATUS: ${{ inputs.report-status }}
         MERGE_PREVIEW: ${{ inputs.merge-preview }}
         PACKAGE_MANAGER: ${{ steps.detect.outputs.package-manager }}
         RELIZY_VERSION: ${{ inputs.relizy-version }}
@@ -302,6 +307,14 @@ runs:
           relizy="npx --yes relizy@$RELIZY_ACTION_VERSION"
         else
           relizy="npx --yes relizy@latest"
+        fi
+        # The commit status relizy/release, when the relizy run knows the flag (an older one would fail on it)
+        if [ "$command" = release ] && [ "$RELIZY_REPORT_STATUS" = "true" ]; then
+          if $relizy release --help 2> /dev/null | grep -q -- '--report-status'; then
+            flag="$flag --report-status"
+          else
+            echo "::notice::report-status skipped: this relizy does not know --report-status, upgrade it to follow the release with the commit status relizy/release"
+          fi
         fi
         # shellcheck disable=SC2086
         $relizy "$command" $flag $RELIZY_ARGS

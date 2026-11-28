@@ -22,6 +22,10 @@ spec:
     args:
       default: ''
       description: More arguments for relizy release, e.g. "--tag beta --preid beta"
+    report-status:
+      type: boolean
+      default: false
+      description: Set the commit status relizy/release on the released commit, to follow the release while it runs (GitLab shows its first step and its end), needs GITLAB_TOKEN with the api scope (the job token cannot set statuses). Off by default, a job killed while it runs leaves the pipeline running
     skip-commit:
       default: '^chore\(release\): '
       description: Regular expression of the release commit message, which does not run the job again
@@ -48,6 +52,7 @@ release:
     RELIZY_INPUT_RELEASE_TYPE: '$[[ inputs.release-type ]]'
     RELIZY_INPUT_PROFILE: '$[[ inputs.profile ]]'
     RELIZY_INPUT_ARGS: '$[[ inputs.args ]]'
+    RELIZY_INPUT_REPORT_STATUS: '$[[ inputs.report-status ]]'
     RELIZY_INPUT_SETUP: '$[[ inputs.setup ]]'
     RELIZY_INPUT_PACKAGE_MANAGER: '$[[ inputs.package-manager ]]'
     RELIZY_INPUT_VERSION: '$[[ inputs.relizy-version ]]'
@@ -129,6 +134,14 @@ release:
           [0-9]*) relizy="npx --yes relizy@$RELIZY_COMPONENT_VERSION" ;;
           *) relizy="npx --yes relizy@latest" ;;
         esac
+      fi
+      # The commit status relizy/release, when the relizy run knows the flag (an older one would fail on it)
+      if [ "$RELIZY_INPUT_REPORT_STATUS" = "true" ]; then
+        if $relizy release --help 2> /dev/null | grep -q -- '--report-status'; then
+          flag="$flag --report-status"
+        else
+          echo "report-status skipped: this relizy does not know --report-status, upgrade it to follow the release with the commit status relizy/release"
+        fi
       fi
       $relizy release --yes $flag $RELIZY_INPUT_ARGS --report-dotenv "$CI_PROJECT_DIR/relizy.env"
   artifacts:

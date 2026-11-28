@@ -1239,6 +1239,11 @@ export interface ReleaseReportConfig {
    * a GitHub Actions run), e.g. for an artifact of GitLab CI (relative to `cwd`)
    */
   markdown?: string
+  /**
+   * Set the commit status `relizy/release` on the commit being released and update it at each step (GitHub and GitLab), so that the forge, a program or a teammate follows a CI release while it runs: the log of a CI job is not readable by a program while it runs. Needs `statuses: write` on GitHub, a token with the `api` scope on GitLab (the job token cannot set statuses). Only in GitHub Actions and GitLab CI, never in dry-run nor on a pull request run. A failure to set it only warns.
+   * @default false
+   */
+  status?: boolean
 }
 
 export interface ReleaseConfig {

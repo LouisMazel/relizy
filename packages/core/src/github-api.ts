@@ -32,7 +32,7 @@ export interface GithubApiConfig {
 }
 
 /** `https://api.github.com` for github.com, the `/api/v3` of a GitHub Enterprise Server */
-function getGithubApiUrl(domain: string | undefined): string {
+export function getGithubApiUrl(domain: string | undefined): string {
   return domain === 'github.com'
     ? 'https://api.github.com'
     : `https://${domain}/api/v3`

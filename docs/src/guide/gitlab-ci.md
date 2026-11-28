@@ -56,19 +56,20 @@ include:
       args: --tag beta --preid beta
 ```
 
-| Input               | Default                | Description                                                                                                              |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `stage`             | `deploy`               | Stage of the job                                                                                                         |
-| `image`             | `node:lts`             | Node.js image of the job                                                                                                 |
-| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                                                      |
-| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence)                                     |
-| `profile`           |                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...), as `--profile` (relizy 2.3.0 or later) |
-| `args`              |                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--dry-run`                                              |
-| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again                                               |
-| `setup`             | `true`                 | Install the package manager and the dependencies                                                                         |
-| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                                                           |
-| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                                                         |
-| `working-directory` | `.`                    | Directory of the project                                                                                                 |
+| Input               | Default                | Description                                                                                                                                             |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stage`             | `deploy`               | Stage of the job                                                                                                                                        |
+| `image`             | `node:lts`             | Node.js image of the job                                                                                                                                |
+| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                                                                                     |
+| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence)                                                                    |
+| `profile`           |                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...), as `--profile` (relizy 2.3.0 or later)                                |
+| `args`              |                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--dry-run`                                                                             |
+| `report-status`     | `false`                | Set the commit status `relizy/release` ([Release Progress](./release-progress.md)), needs `GITLAB_TOKEN`; off: a killed job leaves the pipeline running |
+| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again                                                                              |
+| `setup`             | `true`                 | Install the package manager and the dependencies                                                                                                        |
+| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                                                                                          |
+| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                                                                                        |
+| `working-directory` | `.`                    | Directory of the project                                                                                                                                |
 
 `@2` follows the latest relizy 2, `@2.3.0` stays on a version. The job is named `release`: a `release:` job of your `.gitlab-ci.yml` changes its other keys (`tags`, `cache`, `artifacts`...).
 
@@ -123,7 +124,7 @@ Add them in Settings > CI/CD > Variables, masked. GitLab passes them to the job 
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `.npmrc` to write in the job.
 
-`GITLAB_TOKEN` is an access token with the `api` and `write_repository` scopes, and a role allowed to push to the default branch (Maintainer by default): a project access token (Settings > Access tokens), or on the Free tier of gitlab.com, where project access tokens need Premium, a personal access token (of a bot account, ideally). To push without a token, allow the job token to push (see [Push Access](#push-access)). The job token (`CI_JOB_TOKEN`) creates the GitLab releases, but cannot comment the merge requests: the MR comment needs `GITLAB_TOKEN`.
+`GITLAB_TOKEN` is an access token with the `api` and `write_repository` scopes, and a role allowed to push to the default branch (Maintainer by default): a project access token (Settings > Access tokens), or on the Free tier of gitlab.com, where project access tokens need Premium, a personal access token (of a bot account, ideally). To push without a token, allow the job token to push (see [Push Access](#push-access)). The job token (`CI_JOB_TOKEN`) creates the GitLab releases, but cannot comment the merge requests nor set commit statuses: the MR comment and the `report-status` input need `GITLAB_TOKEN`.
 
 A protected variable is only given to the pipelines of protected branches and tags: leave `NPM_TOKEN` and `GITLAB_TOKEN` unprotected for the [canary releases](#canary-release-on-merge-requests) of merge requests.
 
@@ -272,6 +273,24 @@ canary:
 ```
 
 The merge requests of forks run in the pipelines of the fork, without the variables of your project: they get no canary.
+
+### Resume a Failed Release
+
+"Retry" runs the job again with the same arguments. To skip the versions a failed run already published, run a pipeline on the same commit with a variable, `RESUME_RELEASE` = `true` (see [Resume a Release](./resume-a-release.md#in-gitlab-ci)):
+
+```yaml
+include:
+  - component: gitlab.com/relizy/relizy/release@2
+    rules:
+      - if: $RESUME_RELEASE != "true"
+  - component: gitlab.com/relizy/relizy/release@2
+    inputs:
+      args: --skip-existing-versions
+    rules:
+      - if: $RESUME_RELEASE == "true"
+```
+
+The dotenv report is uploaded after a failure too: a later job reads `RELIZY_STATUS=failed`.
 
 ### Merge the Release into develop
 

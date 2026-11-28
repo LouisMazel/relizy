@@ -28,7 +28,7 @@ export const CORE_DOMAINS: CoreDomain[] = [
   { id: 'tags', title: 'tags', description: 'Name and find the git tags of the releases: repository and package tags, previous release, rewritten tags.' },
   { id: 'changelog', title: 'changelog', description: 'The data and the markdown of a changelog: range of a release, sections of the commits, compare link, contributors.' },
   { id: 'registry', title: 'registry (npm)', description: 'Registries and publishing: registry targets of a package, publish commands, trusted publishing, published versions.' },
-  { id: 'providers', title: 'providers (GitHub, GitLab)', description: 'Repository URL parsing, GitHub and GitLab releases, authentication tokens.' },
+  { id: 'providers', title: 'providers (GitHub, GitLab)', description: 'Repository URL parsing, GitHub and GitLab releases, the commit status of a release in CI, authentication tokens.' },
   { id: 'ci-utils', title: 'ci and utils', description: 'CI detection and git identity, CI workflow files, formatting helpers, secret redaction and the logger type.' },
 ]
 
@@ -91,6 +91,7 @@ const MODULE_DOMAINS: Record<string, string> = {
   'gitlab-auth': 'providers',
   'gh-cli': 'providers',
   'glab-cli': 'providers',
+  'release-status': 'providers',
   'repo-config': 'providers',
   'ci': 'ci-utils',
   'ci-env': 'ci-utils',

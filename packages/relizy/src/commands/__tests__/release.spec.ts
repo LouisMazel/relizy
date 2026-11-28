@@ -1373,6 +1373,32 @@ describe('Given the report of release', () => {
     expect(report).toEqual(expect.objectContaining({ status: 'nothing', released: false, steps: [] }))
     expect(changelog).not.toHaveBeenCalled()
   })
+
+  it('Then a push failing after the publish tells how to resume, from the same commit only', async () => {
+    vi.mocked(bump).mockResolvedValue({
+      newVersion: '1.0.0',
+      oldVersion: '0.9.0',
+      bumpedPackages: [],
+      bumped: true,
+    })
+    vi.mocked(pushCommitAndTags).mockRejectedValueOnce(new Error('push refused'))
+    const warn = vi.spyOn(logger, 'warn')
+
+    await expect(release({})).rejects.toThrow('push refused')
+
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^2 versions are already published\. To resume, re-run the release (from commit \w{7} )?\(the same commit, never after new commits\) with --skip-existing-versions\..* See https:\/\/relizy\.dev\/guide\/resume-a-release$/))
+    warn.mockRestore()
+  })
+
+  it('Then a failure before any publish gives no hint to resume', async () => {
+    vi.mocked(bump).mockRejectedValueOnce(new Error('Bump failed'))
+    const warn = vi.spyOn(logger, 'warn')
+
+    await expect(release({})).rejects.toThrow('Bump failed')
+
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('--skip-existing-versions'))
+    warn.mockRestore()
+  })
 })
 
 describe('Given the output of release in CI', () => {

@@ -13,6 +13,7 @@ import { isVersionPublished } from './npm-versions'
 import { askText, assertInteractivePrompt } from './prompts'
 import { getTargetPublishAuth, getTargetRegistry, getTrustedPublisherMismatchMessage } from './publish-checks'
 import { promptInReleaseUi } from './release-ui'
+import { RESUME_GUIDE_URL } from './resume-hint'
 import { getStagedVersions, isVersionStaged, recordAlreadyStagedVersion, recordStagedVersion } from './staging'
 import { peekPublishedPackages } from './step-data'
 import { getPublishWebAuthHandler } from './two-factor'
@@ -361,7 +362,7 @@ async function handleStagingError({ error, pkg, config, packageManager, registry
   throw new VersionAlreadyStagedError({
     packageName: pkg.name,
     version,
-    message: `${packageNameAndVersion}${registryLabel} is already staged, awaiting approval: approve it with "relizy stage approve ${pkg.name}" or reject it with "relizy stage reject ${pkg.name}". Enable publish.skipExistingVersions (or pass --skip-existing-versions) to skip it instead of failing.`,
+    message: `${packageNameAndVersion}${registryLabel} is already staged, awaiting approval: approve it with "relizy stage approve ${pkg.name}" or reject it with "relizy stage reject ${pkg.name}". Enable publish.skipExistingVersions (or pass --skip-existing-versions) to skip it instead of failing, only when re-running the release from the same commit: ${RESUME_GUIDE_URL}`,
     cause: error,
   })
 }
@@ -507,7 +508,8 @@ async function publishToRegistryTarget({
           `Version ${packageNameAndVersion} already exists on the registry${registryLabel} and cannot be overwritten. `
           + 'This usually happens when re-running a release on the same commit (e.g. a canary rerun), '
           + 'or after a release that published this version but failed to push its release commit (merge its tag into your branch to recover). '
-          + 'Enable publish.skipExistingVersions (or pass --skip-existing-versions) to skip already-published versions instead of failing.',
+          + 'Enable publish.skipExistingVersions (or pass --skip-existing-versions) to skip already-published versions instead of failing, '
+          + `only when re-running the release from the same commit: ${RESUME_GUIDE_URL}`,
           { cause: error },
         )
       }

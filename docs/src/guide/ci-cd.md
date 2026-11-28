@@ -101,6 +101,34 @@ From a Node.js script, [`release()`](./../api/release.md) returns the same repor
 
 For the announcements, prefer [social posts](./social-media.md) and the [PR comment](./pr-comment.md) to a message written by hand.
 
+## Tell Another Program
+
+| The release runs                         | What tells it                                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| In the program (an app embedding relizy) | The events of [`onProgress`](./../api/progress-events.md) and the report returned by [`release()`](./../api/release.md) |
+| In a CI the program watches              | The commit status `relizy/release` while it runs ([Release Progress](./release-progress.md)), then the report           |
+| In a terminal, or a CI it does not watch | A `success:release` [hook](#run-something-only-when-a-release-happens) posting to a webhook, or the tags                |
+| Anywhere                                 | The registry (the new version) and the provider release                                                                 |
+
+**From the forge**, without relizy code:
+
+```yaml
+# GitHub Actions: start a workflow when a release is published
+on:
+  release:
+    types: [published]
+```
+
+On GitLab, the release events and pipeline events [webhooks](https://docs.gitlab.com/user/project/integrations/webhook_events/) of the project tell a server.
+
+**From the tags**, the truth of what was released: compare the release tags of the remote with the last one seen, without updating a clone:
+
+```bash
+git ls-remote --tags origin 'v*'
+```
+
+The tag names follow [`templates.tagBody`](./../config/commit-templates.md#tagbody) (`v{{newVersion}}` by default; `<name>@<version>` in `independent` mode): the version is read back from them. The details come from the provider release or the registry.
+
 ## Troubleshooting
 
 ### The Push Is Refused
@@ -121,6 +149,8 @@ The dry run of a pull request (`pull_request` on GitHub, a merge request pipelin
 
 On GitLab, the fix is a `GITLAB_TOKEN` variable (an access token with the `write_repository` and `api` scopes), or allowing the job token to push: see [Push Access](./gitlab-ci.md#push-access).
 
+Refused after the publish, the packages are on the registry: see [Resume a Release](./resume-a-release.md).
+
 ### Protected Branches
 
 A branch requiring pull requests or status checks rejects the push of the release commit, after the publish. Push with a token allowed to bypass the rule: see [Protected Branches and Rulesets](./github-actions.md#protected-branches-and-rulesets) on GitHub, [Protected Branches and Tags](./gitlab-ci.md#protected-branches-and-tags) on GitLab. Then re-run the release from the latest commit: Relizy stops on the tags already created and prints how to recover (see [Branch Safety](./../cli/release.md#branch-safety)).
@@ -134,7 +164,7 @@ A branch requiring pull requests or status checks rejects the push of the releas
 - **E_STAGE_REQUIRED**: npm only accepts a staged version from this token or this trusted publisher. Stage the version (`--staged`), or allow direct publishing. See [Troubleshooting staged publishing](./staged-publishing.md#troubleshooting).
 - **Warning about January 2027**: a direct publish with a granular token. See [Moving off npm tokens](./npm-token-migration.md). `--no-safety-check` silences it.
 - **OTP required**: a CI cannot type a one-time password. Use a token allowed to publish without 2FA.
-- **Version already published**: a previous run published it but did not push. Follow the recovery printed by Relizy, or add `--skip-existing-versions`.
+- **Version already published**: a previous run published it but did not push. Re-run the same commit with `--skip-existing-versions`, never after new commits: see [Resume a Release](./resume-a-release.md).
 
 ### Nothing to Release
 

@@ -135,7 +135,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       social: true,
       prComment: true,
       sync: true,
-      report: { github: true },
+      report: { github: true, status: false },
     } as Required<Omit<ReleaseConfig, 'report'>> & Pick<ReleaseConfig, 'report'>,
     commitlint: {
       packages: [],

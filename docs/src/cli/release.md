@@ -54,6 +54,8 @@ The packages are published **before** the release commit and its tags are pushed
 - **Rejected push**: if the push is still rejected because the remote branch moved, relizy merges the remote branch into the release commit (the tags stay on the published commit) and pushes again. On a conflict, it aborts the merge, pushes the tags and prints the recovery command.
 - **Failed publication**: the files written by the release are restored.
 
+A release that failed after publishing is resumed from the same commit with `--skip-existing-versions`: see [Resume a Release](./../guide/resume-a-release.md).
+
 ## Options
 
 | Flag                                                     | Description                                                                                                 | Config                                                                        |
@@ -80,7 +82,7 @@ The packages are published **before** the release commit and its tags are pushed
 | `--access <type>`                                        | `public` or `restricted`                                                                                    | [`publish.access`](./../config/publish.md#access)                             |
 | `--otp <code>`                                           | One-time password of the registry (2FA)                                                                     | [`publish.otp`](./../config/publish.md#otp)                                   |
 | `--publish-token <token>`                                | Registry token, for npm, pnpm and bun                                                                       | [`tokens.registry`](./../config/overview.md#tokens)                           |
-| `--skip-existing-versions`                               | Skip the packages whose version is already on the registry instead of failing                               | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
+| `--skip-existing-versions`                               | Skip the packages whose version is already on the registry instead of failing, from the same commit only    | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
 | `--staged`                                               | Stage the versions on npm for approval instead of publishing them, canaries included                        | [`publish.staged`](./../config/publish.md#staged)                             |
 | `--no-staged`                                            | Publish the versions directly, without staging                                                              | [`publish.staged`](./../config/publish.md#staged)                             |
 | `--approve`                                              | Approve the versions the run staged without asking, with one 2FA                                            | [`publish.approve`](./../config/publish.md#approve)                           |
@@ -103,6 +105,8 @@ The packages are published **before** the release commit and its tags are pushed
 | `--report-json <file>`                                   | Write the report of the release to this JSON file                                                           | [`release.report`](./../config/release.md#report)                             |
 | `--report-dotenv <file>`                                 | Write the outputs of the release to this dotenv file (`RELIZY_RELEASED=true`...), for GitLab CI             | [`release.report`](./../config/release.md#report)                             |
 | `--report-markdown <file>`                               | Write the summary of the release to this markdown file                                                      | [`release.report`](./../config/release.md#report)                             |
+| `--report-status`                                        | Set the commit status `relizy/release` at each step, in GitHub Actions and GitLab CI                        | [`release.report`](./../config/release.md#report)                             |
+| `--no-report-status`                                     | Do not set the commit status `relizy/release`                                                               | [`release.report`](./../config/release.md#report)                             |
 
 On GitHub Actions, the outputs of the step and the summary of the run are written without option.
 

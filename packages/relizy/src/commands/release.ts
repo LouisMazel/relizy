@@ -2,10 +2,11 @@ import type { ReleaseReport, ReleaseStepReport, ResolvedRelizyConfig, SyncSource
 import type { StepCheck } from '../core/events'
 import type { AIRewrite, ReleaseLink } from '../core/progress'
 import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult, SyncResult } from '../types'
+import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, filterOutPrivatePackages, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
-import { createCommandUi, createCommitAndTags, describeBumpResult, describeSyncResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, getSyncSource, getSyncTargets, hasSyncFailures, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, syncBranches, syncSafetyCheck, writeReleaseReport } from '../core'
+import { closeReleaseStatus, createCommandUi, createCommitAndTags, describeBumpResult, describeSyncResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, getSyncSource, getSyncTargets, hasSyncFailures, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, startReleaseStatus, syncBranches, syncSafetyCheck, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { describeApproval, runApprovalStep } from '../core/approve'
 import { assertBumpConfirmable } from '../core/bump-prompt'
@@ -15,6 +16,7 @@ import { takeReleaseFacts } from '../core/progress'
 import { runTrustedPublishingPreflight } from '../core/publish-checks'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish, isAwaitingApproval } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
+import { describeResumeHint } from '../core/resume-hint'
 import { describePublishOutcome, getPublishStepLabel, getStagedVersions, getStagingShare, isStagingConfigured, markStagedExplicit } from '../core/staging'
 import { getBumpStepData, getProviderReleaseStepData, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
 import { bump } from './bump'
@@ -439,7 +441,15 @@ function describePublished(packages: PublishResponse['publishedPackages']): stri
 
 export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return runWithEvents(options.onProgress, () => withGitCache(() => runRelease(options)), {
+  return runWithEvents(options.onProgress, () => withGitCache(async () => {
+    try {
+      return await runRelease(options)
+    }
+    finally {
+      // The last commit status of the release is posted before it returns
+      await closeReleaseStatus()
+    }
+  }), {
     onConfirm: options.onConfirm,
     onOtp: options.onOtp,
     onPrompt: options.onPrompt,
@@ -472,6 +482,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
+  // Before the release commit: after a merge, its pull request is the one commented, and the commit status goes to it
+  const startCommit = getHeadCommit(config.cwd)
+  // Before the first event of the release
+  startReleaseStatus({ config, dryRun, sha: startCommit })
+
   const ui = createCommandUi({
     command: 'release',
     title: `relizy release${config.profile
@@ -485,6 +500,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   takeReleaseFacts()
   // The step running when the release fails
   let currentStep = 'Checks'
+  // The versions published or staged by the run, for the hint of a failure
+  let publishedCount = 0
 
   // Known once the bump is done, for the hooks of the next steps
   let hookContext: HookContext | undefined
@@ -533,8 +550,6 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           failedStep: currentStep,
         }),
   })
-  // Before the release commit: after a merge, its pull request is the one commented
-  const startCommit = getHeadCommit(config.cwd)
   const postPrComment = (releaseContext: ReleaseContext) => tryPostPrComment({
     config,
     releaseContext: { ...releaseContext, sha: startCommit },
@@ -768,7 +783,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
             : 'Nothing to publish'
         },
         data: () => takePublishStepData(config, { dryRun }),
-        failedData: () => takePublishStepData(config, { dryRun }),
+        failedData: () => {
+          const data = takePublishStepData(config, { dryRun })
+          publishedCount = data.packages.filter(pkg => pkg.status === 'published' || pkg.status === 'staged').length
+          return data
+        },
         run: async () => {
           // Packages are published before the push: make sure the release commit
           // will be pushable, as new commits may have landed while the release ran.
@@ -846,6 +865,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       ? describePublishOutcome(publishResponse.publishedPackages, 'Published')
       : describePublished(publishResponse.publishedPackages)))
     if (publishResponse) {
+      publishedCount = publishResponse.publishedPackages.length
       facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages, staged })
       // No page for a staged version: it is not on npm until approved
       links.push(...getNpmLinks({
@@ -1166,6 +1186,16 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
     writeReleaseReport({ config, report })
     ui.fail(error, currentStep, report)
+
+    const hint = !dryRun && describeResumeHint({
+      failedStep: currentStep,
+      published: publishedCount,
+      startCommit,
+      githubActions: Boolean(process.env.GITHUB_ACTIONS),
+    })
+    if (hint) {
+      logger.warn(hint)
+    }
 
     throw error
   }

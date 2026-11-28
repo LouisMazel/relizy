@@ -68,6 +68,8 @@ export type { PublishAuth, PublishAuthMode, TrustedPublisherCheck } from './publ
 export { redactSecrets } from './redact'
 export { getNpmRegistry, normalizeRegistryKey, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages, withRegistryNpmrc } from './registry'
 export type { RegistryTargetsOptions } from './registry'
+export { formatReleaseStatus, parseReleaseStatus, readReleaseStatus, RELEASE_STATUS_CONTEXT } from './release-status'
+export type { ParsedReleaseStatus, ReleaseStatus, ReleaseStatusPhase, ReleaseStatusPost, ReleaseStatusUpdate } from './release-status'
 export { formatCompareChanges, formatReference, getRepoConfig, resolveRepoConfig } from './repo-config'
 export { detectRewrittenTag } from './rewritten-tags'
 export type { RewrittenTagCheck } from './rewritten-tags'

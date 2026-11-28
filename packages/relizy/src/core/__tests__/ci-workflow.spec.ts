@@ -38,6 +38,11 @@ describe('Given the release workflow of GitHub Actions', () => {
     expect(content).toContain('      pull-requests: write\n      issues: write\n')
   })
 
+  it('When it runs the relizy action, Then the job may set the commit status relizy/release of the action, not without it', () => {
+    expect(getWorkflowFile(options, '/nonexistent').content).toContain('      # The commit status relizy/release, to follow the release while it runs\n      statuses: write\n')
+    expect(getWorkflowFile({ ...options, integration: false }, '/nonexistent').content).not.toContain('statuses: write')
+  })
+
   it('When released at each push, Then runs on the default branch, without input', () => {
     const { content } = getWorkflowFile({ ...options, trigger: 'push', branch: 'develop' }, '/nonexistent')
 
@@ -46,10 +51,10 @@ describe('Given the release workflow of GitHub Actions', () => {
     expect(content).toContain('        uses: relizy/action@v2\n      # The outputs')
   })
 
-  it('When the config needs no secret nor PR comment, Then only asks the permission to push, the action takes the token of the run', () => {
+  it('When the config needs no secret nor PR comment, Then only asks the permissions to push and to set the commit status, the action takes the token of the run', () => {
     const { content } = getWorkflowFile(options, '/nonexistent')
 
-    expect(content).toContain('      contents: write\n    steps:')
+    expect(content).toContain('      contents: write\n      # The commit status relizy/release, to follow the release while it runs\n      statuses: write\n    steps:')
     expect(content).not.toContain('pull-requests')
     expect(content).not.toContain('GITHUB_TOKEN')
     expect(getWorkflowSecrets(options)).toEqual([])
