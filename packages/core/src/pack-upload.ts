@@ -1,5 +1,6 @@
 import type { ExecLogLevel } from './npm-versions'
 import type { PublishAuthMode } from './publish-auth'
+import type { WebAuthHandler } from './staged'
 import type { CoreLogger, PackageManager, ReadPackage, RegistryTarget } from './types'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -8,7 +9,7 @@ import { execPromise } from '@maz-ui/node'
 import * as semver from 'semver'
 import { readToolVersion, TRUSTED_PUBLISHING_NPM_VERSION } from './npm-oidc'
 import { isYarnBerry } from './package-manager'
-import { getPublishCommand, quoteShellPath } from './publish'
+import { getPublishCommand, quoteShellPath, runNpmPublishWithWebAuth } from './publish'
 import { withRegistryNpmrc } from './registry'
 import { withSignalCleanup } from './signal-cleanup'
 import { PNPM_STAGE_VERSION, STAGED_PUBLISHING_NPM_VERSION, StagingUnavailableError } from './stage-publish'
@@ -255,6 +256,7 @@ export function parsePackOutput(stdout: string, destination: string): string | u
  * @param options.registryLabel - Appended to the log line, to name the registry when there are several.
  * @param options.logLevel - Log level of the commands run.
  * @param options.logger - Receives the progress messages.
+ * @param options.onWebAuth - Shows the web 2FA page of npm when a direct upload asks a one-time password, the upload goes on once validated.
  * @returns `{ stdout, tarball }`: the output of the upload (see `parseStageOutput`) and the tarball path (removed once done).
  * @throws The error of the pack or of the upload command, or an error when the pack output names no tarball.
  * @example
@@ -285,6 +287,7 @@ export async function packAndUpload({
   registryLabel = '',
   logLevel,
   logger,
+  onWebAuth,
 }: {
   pkg: Pick<ReadPackage, 'name' | 'path'>
   cwd: string
@@ -299,6 +302,7 @@ export async function packAndUpload({
   registryLabel?: string
   logLevel?: ExecLogLevel
   logger?: CoreLogger
+  onWebAuth?: WebAuthHandler
 }): Promise<{ stdout: string, tarball: string }> {
   const destination = mkdtempSync(join(tmpdir(), 'relizy-pack-'))
 
@@ -323,16 +327,31 @@ export async function packAndUpload({
       throw new Error(`${packageManager} packed ${packageNameAndVersion} but its output names no tarball`)
     }
 
-    const command = getPublishCommand({
+    const build = ({ otp: token, json }: { otp?: string, json?: boolean }) => getPublishCommand({
       packageManager: 'npm',
       tag,
       registryTarget,
-      otp,
+      otp: token ?? otp,
       dryRun,
       cwd,
-      extraArgs,
+      extraArgs: json
+        ? [
+            ...extraArgs ?? [],
+            '--json',
+          ]
+        : extraArgs,
       staged,
       tarball,
+    })
+    const run = async (line: string) => ({
+      stdout: (await execPromise(line, {
+        noStderr: true,
+        noStdout: true,
+        noSuccess: true,
+        noError: true,
+        logLevel,
+        cwd,
+      }))?.stdout ?? '',
     })
 
     const uploaded = await withRegistryNpmrc({
@@ -342,16 +361,11 @@ export async function packAndUpload({
       // The upload runs npm: the token is written for npm, also with yarn
       packageManager: 'npm',
       logger,
-      fn: () => execPromise(command, {
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        noError: true,
-        logLevel,
-        cwd,
-      }),
+      fn: () => staged || dryRun
+        ? run(build({}))
+        : runNpmPublishWithWebAuth({ run, build, cwd, onWebAuth }),
     })
 
-    return { stdout: uploaded?.stdout ?? '', tarball }
+    return { stdout: uploaded.stdout, tarball }
   })
 }

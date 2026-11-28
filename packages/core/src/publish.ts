@@ -1,10 +1,13 @@
 import type { ExecLogLevel } from './npm-versions'
+import type { WebAuthHandler } from './staged'
 import type { CoreLogger, PackageManager, ReadPackage, RegistryTarget } from './types'
+import { exec } from 'node:child_process'
 import process from 'node:process'
 import { execPromise } from '@maz-ui/node'
 import { isYarnBerry } from './package-manager'
 import { withRegistryNpmrc } from './registry'
 import { StagingUnavailableError } from './stage-publish'
+import { withWebAuth } from './staged'
 import { isPrerelease } from './version'
 
 /**
@@ -390,6 +393,68 @@ export interface PublishToRegistryOptions {
   /** Log level of the commands run */
   logLevel?: ExecLogLevel
   logger?: CoreLogger
+  /**
+   * Shows the web 2FA page of npm (security key, passkey) when the registry
+   * asks a one-time password: the publish goes on once validated. Without it,
+   * the error of the command is thrown (see `isOtpError`)
+   */
+  onWebAuth?: WebAuthHandler
+}
+
+/**
+ * Runs a shell command as `execPromise` does, keeping its stdout on a failure:
+ * the `--json` error of npm holds its web 2FA links there
+ */
+function execKeepingOutput(command: string, cwd: string): Promise<{ stdout: string }> {
+  return new Promise((resolve, reject) => {
+    exec(command, { cwd, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(Object.assign(error, {
+          stdout: String(stdout),
+          stderr: String(stderr),
+        }))
+        return
+      }
+      resolve({
+        stdout: String(stdout),
+      })
+    })
+  })
+}
+
+/**
+ * Runs an npm publish command, and when npm asks a one-time password: runs it
+ * again with `--json` (npm then gives its web 2FA links, nothing is published),
+ * shows the page with `onWebAuth`, and publishes with the token npm gives once
+ * validated. Without `onWebAuth`, the first error is thrown
+ */
+export function runNpmPublishWithWebAuth<T extends { stdout: string }>({ run, build, cwd, onWebAuth }: {
+  /** Runs the command */
+  run: (command: string) => Promise<T>
+  /** The command, with `otp` or `--json` */
+  build: (extra: { otp?: string, json?: boolean }) => string
+  cwd: string
+  onWebAuth?: WebAuthHandler
+}): Promise<T | { stdout: string }> {
+  if (!onWebAuth) {
+    return run(build({}))
+  }
+
+  return withWebAuth<T | { stdout: string }>(async (token) => {
+    if (token) {
+      return run(build({ otp: token }))
+    }
+    try {
+      return await run(build({}))
+    }
+    catch (error) {
+      if (!isOtpError(error)) {
+        throw error
+      }
+      // EOTP: nothing was published, the JSON error holds the links (or it publishes, when the 2FA is no longer asked)
+      return execKeepingOutput(build({ json: true }), cwd)
+    }
+  }, { onWebAuth, purpose: 'publish' })
 }
 
 /**
@@ -415,6 +480,7 @@ export interface PublishToRegistryOptions {
  * @param options.registryLabel - Appended to the log line, to name the registry when there are several (empty by default).
  * @param options.logLevel - Log level of the commands run.
  * @param options.logger - Receives the progress messages.
+ * @param options.onWebAuth - Shows the web 2FA page of npm when the registry asks a one-time password (npm only: the other package managers throw the error, see `isOtpError`).
  * @returns Resolves when the publish command succeeds (or is skipped by a dry run).
  * @throws The error of the publish command, see `isOtpError`, `isPaymentRequiredError` and `isVersionAlreadyPublishedError` to classify it.
  * @example
@@ -452,6 +518,7 @@ export async function publishToRegistry(options: PublishToRegistryOptions): Prom
  * @param options.registryLabel - Appended to the log line, to name the registry when there are several (empty by default).
  * @param options.logLevel - Log level of the commands run.
  * @param options.logger - Receives the progress messages.
+ * @param options.onWebAuth - Shows the web 2FA page of npm when the registry asks a one-time password (npm only: the other package managers throw the error, see `isOtpError`).
  * @param options.staged - Stage the version (`npm stage publish`, `pnpm stage publish`), `false` by default.
  * @returns `{ stdout }`, the output of the command (empty when a dry run skips it).
  * @throws The error of the command (see `isStageRequiredError`, `isVersionAlreadyStagedError`, `isOtpError`...), or `StagingUnavailableError` when `staged` is asked of yarn or bun.
@@ -475,21 +542,28 @@ export async function publishToRegistryWithResult({
   logLevel,
   logger,
   staged = false,
+  onWebAuth,
 }: PublishToRegistryOptions & {
   /** Stage the version instead of publishing it */
   staged?: boolean
 }): Promise<{ stdout: string }> {
   try {
-    const command = getPublishCommand({
+    const build = ({ otp: token, json }: { otp?: string, json?: boolean }) => getPublishCommand({
       packageManager,
       tag,
       registryTarget,
-      otp,
+      otp: token ?? otp,
       dryRun,
       cwd,
-      extraArgs,
+      extraArgs: json
+        ? [
+            ...extraArgs ?? [],
+            '--json',
+          ]
+        : extraArgs,
       staged,
     })
+    const command = build({})
 
     process.chdir(pkg.path)
 
@@ -503,7 +577,7 @@ export async function publishToRegistryWithResult({
       packageName: pkg.name,
       packageManager,
       logger,
-      fn: async () => {
+      fn: () => {
         logger?.info?.(`${dryRun ? '[dry-run] ' : ''}${staged
           ? 'Staging'
           : 'Publishing'} ${packageNameAndVersion} with tag "${tag}"${registryLabel}`)
@@ -512,20 +586,26 @@ export async function publishToRegistryWithResult({
 
         if (dryRunPublish) {
           logger?.info?.(`${dryRun ? '[dry-run] ' : ''}Skipping actual publish for ${packageNameAndVersion}`)
-          return { stdout: '' }
+          return Promise.resolve({ stdout: '' })
         }
 
         // execPromise already logs stdout/stderr in debug with secrets masked.
-        const result = await execPromise(command, {
-          noStderr: true,
-          noStdout: true,
-          noSuccess: true,
-          noError: true,
-          logLevel,
-          cwd: pkg.path,
+        const run = async (line: string) => ({
+          stdout: (await execPromise(line, {
+            noStderr: true,
+            noStdout: true,
+            noSuccess: true,
+            noError: true,
+            logLevel,
+            cwd: pkg.path,
+          }))?.stdout ?? '',
         })
 
-        return { stdout: result?.stdout ?? '' }
+        // Only npm gives its web 2FA links without a terminal: the other package managers fall back below
+        if (packageManager !== 'npm' || staged || dryRun) {
+          return run(command)
+        }
+        return runNpmPublishWithWebAuth({ run, build, cwd: pkg.path, onWebAuth })
       },
     })
   }
