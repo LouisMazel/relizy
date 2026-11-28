@@ -256,6 +256,60 @@ describe('Given publishSafetyCheck function', () => {
     })
   })
 
+  describe('When publishing without staging', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('Then keeps one whoami for a CI job whose token is only in its .npmrc', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', '')
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+      await publishSafetyCheck({
+        config: createMockConfig({
+          bump: { type: 'patch' },
+          publish: {
+            safetyCheck: true,
+            args: [],
+            packageManager: 'npm',
+            registry: 'https://registry.npmjs.org/',
+          },
+          tokens: { registry: undefined },
+          safetyCheck: true,
+        }),
+      })
+
+      expect(vi.mocked(execPromise).mock.calls.map(call => call[0])).toEqual(['npm whoami --registry https://registry.npmjs.org/'])
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(assertTrustedPublishingNpm).not.toHaveBeenCalled()
+      fetchSpy.mockRestore()
+    })
+
+    it.each(['yarn', 'bun'] as const)('Then runs nothing for %s with a token', async (packageManager) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+      await publishSafetyCheck({
+        config: createMockConfig({
+          bump: { type: 'patch' },
+          publish: {
+            safetyCheck: true,
+            args: [],
+            packageManager,
+            registry: 'https://registry.npmjs.org/',
+          },
+          tokens: { registry: 'npm_token' },
+          safetyCheck: true,
+        }),
+      })
+
+      expect(execPromise).not.toHaveBeenCalled()
+      expect(fetchSpy).not.toHaveBeenCalled()
+      fetchSpy.mockRestore()
+    })
+  })
+
   describe('When auth check succeeds', () => {
     it('Then does not exit', async () => {
       const config = createMockConfig({
@@ -842,6 +896,141 @@ describe('Given publish command followed by an application', () => {
           ],
         },
       })
+    })
+  })
+
+  describe('When the packages are published without staging', () => {
+    it('Then keeps every event of the publish, byte for byte', async () => {
+      vi.mocked(publishPackage)
+        .mockResolvedValueOnce(['published'])
+        .mockResolvedValueOnce(['skipped'])
+      const events: RelizyEvent[] = []
+
+      await publish({
+        onProgress: event => events.push(event),
+      })
+
+      expect(events.map(({ time: _time, ...event }) => 'durationMs' in event
+        ? { ...event, durationMs: 0 }
+        : event)).toMatchInlineSnapshot(`
+          [
+            {
+              "command": "publish",
+              "dryRun": false,
+              "title": "relizy publish",
+              "type": "command:start",
+            },
+            {
+              "label": "Checking the packages to publish",
+              "step": "publish",
+              "type": "step:start",
+            },
+            {
+              "details": [],
+              "durationMs": 0,
+              "label": "Checking the packages to publish",
+              "message": "pkg-a@1.1.0, pkg-b@2.1.0 to publish",
+              "step": "publish",
+              "type": "step:done",
+            },
+            {
+              "label": "Publishing the packages",
+              "step": "publish",
+              "type": "step:start",
+            },
+            {
+              "ai": false,
+              "message": "Publishing pkg-a@1.1.0 (1/2)",
+              "type": "progress",
+            },
+            {
+              "item": {
+                "name": "pkg-a@1.1.0",
+                "status": "running",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "item": {
+                "name": "pkg-a@1.1.0",
+                "status": "done",
+                "url": "https://www.npmjs.com/package/pkg-a/v/1.1.0",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "ai": false,
+              "message": "Publishing pkg-b@2.1.0 (2/2)",
+              "type": "progress",
+            },
+            {
+              "item": {
+                "name": "pkg-b@2.1.0",
+                "status": "running",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "item": {
+                "detail": "version already on the registry",
+                "name": "pkg-b@2.1.0",
+                "status": "skipped",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "data": {
+                "dryRun": false,
+                "packages": [
+                  {
+                    "name": "pkg-a",
+                    "status": "published",
+                    "url": "https://www.npmjs.com/package/pkg-a/v/1.1.0",
+                    "version": "1.1.0",
+                  },
+                  {
+                    "name": "pkg-b",
+                    "reason": "version already on the registry",
+                    "status": "skipped",
+                    "version": "2.1.0",
+                  },
+                ],
+                "registry": "https://registry.npmjs.org/",
+                "tag": "beta",
+              },
+              "details": [],
+              "durationMs": 0,
+              "label": "Publishing the packages",
+              "message": "Published pkg-a@1.1.0, pkg-b@2.1.0 (beta)",
+              "step": "publish",
+              "type": "step:done",
+            },
+            {
+              "durationMs": 0,
+              "failed": false,
+              "links": [
+                {
+                  "label": "pkg-a@1.1.0",
+                  "step": "publish",
+                  "url": "https://www.npmjs.com/package/pkg-a/v/1.1.0",
+                },
+                {
+                  "label": "pkg-b@2.1.0",
+                  "step": "publish",
+                  "url": "https://www.npmjs.com/package/pkg-b/v/2.1.0",
+                },
+              ],
+              "message": "Published pkg-a@1.1.0, pkg-b@2.1.0 (beta)",
+              "nothing": false,
+              "type": "command:complete",
+              "warnings": [],
+            },
+          ]
+        `)
     })
   })
 

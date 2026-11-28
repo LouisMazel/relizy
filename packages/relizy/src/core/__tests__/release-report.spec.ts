@@ -143,6 +143,71 @@ const detailed: ReleaseReport = {
   },
 }
 
+describe('Given a release that published without staging', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date('2026-11-28T01:44:00Z'), toFake: ['Date'] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('Then keeps its text, markdown and outputs, byte for byte', () => {
+    expect(formatReleaseReportText(detailed)).toMatchInlineSnapshot(`
+      "Release completed
+
+      Version: 2.0.0
+      Tag(s): v2.0.0
+      Changelog: Done
+      Publish: relizy@2.0.0
+      Commit and tags: v2.0.0
+      Push: Done
+      Provider release: 1 release on github
+      Social media: Skipped"
+    `)
+    expect(formatReleaseReportMarkdown(detailed)).toMatchInlineSnapshot(`
+      "## 🚀 Released relizy \`2.0.0\`
+
+      | Step | Result |
+      | --- | --- |
+      | **Content** | 11 features · 7 fixes · 7 breaking · 2 contributors |
+      | ✅ **Changelog** | done |
+      | ✅ **Publish** | [relizy@2.0.0](https://www.npmjs.com/package/relizy/v/2.0.0) · latest · registry.npmjs.org |
+      | ✅ **Commit and tags** | a1b2c3d · v2.0.0 |
+      | ✅ **Push** | main → origin/main |
+      | ✅ **Provider release** | 1 release on github<br>[v2.0.0](https://github.com/user/relizy/releases/tag/v2.0.0) |
+      | ✨ **AI** | 2 rewrites by claude-code in 31.2s · 12.4k tokens · $0.042 |
+      | **Install** | \`pnpm add relizy@2.0.0\` |
+
+      ### Packages
+
+      | Package | Version |
+      | --- | --- |
+      | \`relizy\` | \`1.14.3\` → \`2.0.0\` |
+
+      <sub>\`main\` · 2026-11-28 01:44 UTC · by [relizy](https://relizy.dev)</sub>
+      "
+    `)
+    expect(getReleaseReportOutputs(detailed)).toMatchInlineSnapshot(`
+      {
+        "branch": "main",
+        "commit": "a1b2c3d",
+        "dist_tags": "latest",
+        "failed_steps": "",
+        "install": "pnpm add relizy@2.0.0",
+        "package_relizy_version": "2.0.0",
+        "packages": "relizy@2.0.0",
+        "released": "true",
+        "status": "released",
+        "synced_branches": "",
+        "tags": "v2.0.0",
+        "urls": "https://www.npmjs.com/package/relizy/v/2.0.0,https://github.com/user/relizy/releases/tag/v2.0.0",
+        "version": "2.0.0",
+      }
+    `)
+  })
+})
+
 describe('Given the renderers of the release report', () => {
   it('Then renders a release as text for the terminal', () => {
     expect(formatReleaseReportText(released)).toBe([

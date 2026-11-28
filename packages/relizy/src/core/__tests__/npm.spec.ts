@@ -932,6 +932,90 @@ describe('Given publishPackage function', () => {
     vi.unstubAllGlobals()
   })
 
+  describe('When publishing without staging', () => {
+    const GITHUB_OIDC = { GITHUB_ACTIONS: 'true', ACTIONS_ID_TOKEN_REQUEST_URL: 'https://token.example', ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'request-token' }
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it.each([
+      ['npm', false, 'npm publish --tag latest --registry https://registry.npmjs.org/ --access public --yes --provenance'],
+      ['pnpm', false, 'pnpm publish --tag latest --registry https://registry.npmjs.org/ --access public --no-git-checks --provenance'],
+      ['npm', true, 'npm publish --tag latest --registry https://registry.npmjs.org/ --access public --yes --provenance --dry-run'],
+      ['pnpm', true, 'pnpm publish --tag latest --registry https://registry.npmjs.org/ --access public --no-git-checks --provenance --dry-run'],
+      ['yarn', false, 'yarn publish --tag latest --registry https://registry.npmjs.org/ --access public --non-interactive --provenance'],
+      ['bun', false, 'bun publish --tag latest --registry https://registry.npmjs.org/ --access public --provenance'],
+    ] as const)('Then keeps the %s command (dry run: %s) and its options', async (packageManager, dryRun, command) => {
+      config.publish = {
+        ...config.publish,
+        registry: 'https://registry.npmjs.org/',
+        access: 'public',
+        args: ['--provenance'],
+      }
+
+      await publishPackage({ pkg, config, packageManager, dryRun })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(command, {
+        noStderr: true,
+        noStdout: true,
+        noSuccess: true,
+        noError: true,
+        logLevel: config.logLevel,
+        cwd: '/packages/test',
+      })
+    })
+
+    it('Then still skips the command of yarn and bun in a dry run, also under trusted publishing', async () => {
+      for (const [key, value] of Object.entries(GITHUB_OIDC)) {
+        vi.stubEnv(key, value)
+      }
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: true,
+      })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: true,
+      })
+
+      expect(execPromise).not.toHaveBeenCalled()
+    })
+
+    it('Then keeps the native publish of bun and yarn classic with a token, even when an ID token is obtainable', async () => {
+      for (const [key, value] of Object.entries(GITHUB_OIDC)) {
+        vi.stubEnv(key, value)
+      }
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+      config.tokens = { ...config.tokens, registry: 'npm_token' }
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: false,
+      })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: false,
+      })
+
+      expect(vi.mocked(execPromise).mock.calls.map(call => call[0])).toEqual([
+        'bun publish --tag latest --registry https://registry.npmjs.org/',
+        'yarn publish --tag latest --registry https://registry.npmjs.org/ --non-interactive',
+      ])
+    })
+  })
+
   describe('When publishing successfully', () => {
     it('Then publishes package with correct tag', async () => {
       await publishPackage({
