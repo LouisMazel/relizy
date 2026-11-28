@@ -307,10 +307,11 @@ async function askPublish(detection: ProjectDetection, answers: InitAnswers): Pr
         }
       : {}),
     profiles: await answer(multiselect({
-      message: 'Also release on other channels? (written as profiles: relizy release --profile <name>)',
+      message: 'Release channels to name? (written as profiles: relizy release --profile <name>)',
       required: false,
       initialValues: answers.profiles ?? [],
       options: [
+        { value: 'stable' as const, label: 'stable', hint: 'stable versions (1.2.0) under the latest dist-tag, also from a prerelease' },
         { value: 'alpha' as const, label: 'alpha', hint: 'prereleases (1.2.0-alpha.0) under the alpha dist-tag' },
         { value: 'beta' as const, label: 'beta', hint: 'prereleases (1.2.0-beta.0) under the beta dist-tag' },
         { value: 'rc' as const, label: 'rc', hint: 'release candidates (1.2.0-rc.0) under the rc dist-tag' },
