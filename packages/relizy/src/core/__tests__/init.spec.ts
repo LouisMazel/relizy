@@ -241,6 +241,30 @@ describe('Given the init helpers', () => {
       expect(buildInitConfig(detection, answers(detection, { staged: 'all' })).publish).toEqual({ staged: true })
     })
 
+    it('Then writes the profiles of the channels chosen, none by default', () => {
+      writePackage('.', { name: 'lib', version: '1.0.0' })
+      const detection = {
+        ...detectProject({ cwd }),
+        provider: 'github' as const,
+      }
+
+      expect(buildInitConfig(detection, answers(detection)).profiles).toBeUndefined()
+      expect(buildInitConfig(detection, answers(detection, { profiles: [] })).profiles).toBeUndefined()
+      expect(buildInitConfig(detection, answers(detection, {
+        profiles: ['canary'],
+      })).profiles).toEqual({
+        canary: {
+          description: 'Canary of the current commit under the canary dist-tag, without commit nor tag',
+          release: { canary: true },
+        },
+      })
+      // Nothing published: no channel
+      expect(buildInitConfig(detection, answers(detection, {
+        goal: 'version',
+        profiles: ['beta'],
+      })).profiles).toBeUndefined()
+    })
+
     it('Then takes the default answers from the default config, so changing a default changes init', () => {
       writePackage('.', { name: 'lib', version: '1.0.0' })
       const defaults = getDefaultConfig()

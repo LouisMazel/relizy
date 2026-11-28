@@ -572,6 +572,7 @@ describe('Given init command', () => {
         ['packages/*'],
         ['dependencies', 'devDependencies'],
         typesExcept('chore'),
+        ['beta', 'canary'],
         ['slack'],
         ['providerRelease'],
       ])
@@ -612,6 +613,17 @@ describe('Given init command', () => {
         },
         changelog: { rootChangelog: false },
         publish: { access: 'restricted', registry: 'https://npm.acme.dev', buildCmd: 'pnpm build' },
+        profiles: {
+          beta: {
+            description: 'Prerelease under the beta dist-tag',
+            bump: { type: 'prerelease', preid: 'beta' },
+            publish: { tag: 'beta' },
+          },
+          canary: {
+            description: 'Canary of the current commit under the canary dist-tag, without commit nor tag',
+            release: { canary: true },
+          },
+        },
         social: {
           slack: { enabled: true, channel: '#releases' },
           changelogUrl: 'https://acme.dev/changelog',
@@ -969,6 +981,8 @@ describe('Given init command', () => {
         answer(confirm, [true, true, false, false, true])
         answer(multiselect, [
           typesExcept(),
+          // No other channel: no profile
+          [],
           ['twitter'],
           ['twitter'],
         ])
@@ -1013,6 +1027,8 @@ describe('Given init command', () => {
         answer(confirm, [true, true, false, false, true])
         answer(multiselect, [
           typesExcept(),
+          // No other channel: no profile
+          [],
           ['twitter'],
           ['twitter'],
         ])
