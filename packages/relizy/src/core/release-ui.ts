@@ -793,8 +793,11 @@ class PrettyUi extends StepUi {
         : bold(title))
     }
 
-    for (const warning of warnings) {
-      log.warn(warning)
+    // What the person must act on after the command: a box, as every message to act on
+    if (warnings.length > 0) {
+      note(warnings.join('\n\n'), paint(['yellow', 'bold'], warnings.length > 1
+        ? 'Warnings'
+        : 'Warning'))
     }
 
     if (details.length > 0) {
@@ -840,7 +843,8 @@ class PrettyUi extends StepUi {
 
   protected onFail(error: unknown, _failedStep?: string, report?: ReleaseReport): void {
     if (!(error instanceof RelizyCancelError)) {
-      log.error(this.describeError(error).join('\n'))
+      // What went wrong and how to go on: a box, as every message to act on
+      note(this.describeError(error).join('\n'), paint(['red', 'bold'], 'Error'))
     }
 
     if (report) {
@@ -848,7 +852,9 @@ class PrettyUi extends StepUi {
     }
     outro(paint('red', error instanceof RelizyCancelError
       ? error.message
-      : 'Release failed'))
+      : this.command === 'release'
+        ? 'Release failed'
+        : `relizy ${this.command} failed`))
   }
 }
 

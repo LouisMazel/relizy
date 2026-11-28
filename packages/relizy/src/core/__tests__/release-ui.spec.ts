@@ -888,6 +888,7 @@ describe('Given the terminal output', () => {
 
     expect(spin.clear).toHaveBeenCalled()
     expect(clack.log.error).not.toHaveBeenCalled()
+    expect(clack.note).not.toHaveBeenCalled()
     expect(clack.outro).toHaveBeenCalledWith('Bump cancelled')
   })
 
@@ -909,9 +910,27 @@ describe('Given the terminal output', () => {
     commandUi.fail(error, 'Push', { ...releaseReport, status: 'failed', dryRun: false })
 
     expect(spin.error).toHaveBeenCalledWith(expect.stringMatching(/^Pushing {2}\d+ms$/))
-    expect(clack.log.error).toHaveBeenCalledWith('push rejected\nFull log: node_modules/.cache/relizy/release.log')
-    expect(vi.mocked(clack.note).mock.calls[0]![1]).toBe('Summary')
+    expect(clack.note).toHaveBeenCalledWith('push rejected\nFull log: node_modules/.cache/relizy/release.log', expect.stringContaining('Error'))
+    expect(vi.mocked(clack.note).mock.calls[1]![1]).toBe('Summary')
     expect(clack.outro).toHaveBeenCalledWith('Release failed')
+
+    const stageUi = ui.createCommandUi({
+      command: 'stage approve',
+      title: 'relizy stage approve',
+      dryRun: false,
+      cwd,
+    })
+    stageUi.fail(new Error('npm login needed'))
+    expect(clack.outro).toHaveBeenLastCalledWith('relizy stage approve failed')
+
+    const trustUi = ui.createCommandUi({
+      command: 'trust',
+      title: 'relizy trust',
+      dryRun: false,
+      cwd,
+    })
+    trustUi.complete({ message: 'Trusted publishing set up for 1 package', warnings: ['Run "relizy trust" again before the next release'] })
+    expect(clack.note).toHaveBeenLastCalledWith('Run "relizy trust" again before the next release', expect.stringContaining('Warning'))
   })
 
   it('Then ends a dry run with the summary, the command to release for real and the end', async () => {
