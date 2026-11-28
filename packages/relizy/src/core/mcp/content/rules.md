@@ -18,6 +18,7 @@ Never invent a config option nor a CLI flag: check it with `get_config_option` o
 ### Releasing
 
 - Preview, never guess: `preview_release` and `preview_changelog`, or `relizy release --dry-run`.
+- After a failed release, never re-run it without the approval of the user: start with `preview_release` (what is published and tagged), and never add `--skip-existing-versions` to a run from another commit than the failed one.
 - Never run `relizy release`, `bump`, `publish`, `changelog`, `provider-release`, `social`, `sync`, `pr-comment`, `merge-preview`, `stage approve`, `stage reject` or `trust` without the explicit approval of the user: they write versions and changelogs, commit, tag, push, publish, comment the pull requests, approve or reject staged versions with the 2FA of the user (a rejection is final), or write the trusted publishers of npm. Most projects release from their CI. `relizy stage list` is read-only.
 - With `publish.staged`, a released version is not installable until a maintainer approves it: check `list_staged_versions` (or `relizy stage list`) before saying it is out.
 - Never edit the versions of the `package.json` files, the `CHANGELOG.md` files nor the release tags by hand: relizy computes them from the commits and the tags.
