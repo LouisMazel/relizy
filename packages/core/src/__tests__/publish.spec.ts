@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { execPromise } from '@maz-ui/node'
-import { getAuthCommand, getPublishCommand, getPublishTag, isOtpError, isPaymentRequiredError, publishToRegistry } from '../publish'
+import { getAuthCommand, getPublishCommand, getPublishTag, isOtpError, isPaymentRequiredError, publishToRegistry, publishToRegistryWithResult } from '../publish'
 import { withRegistryNpmrc } from '../registry'
 
 vi.mock('@maz-ui/node', async importActual => ({
@@ -126,6 +126,60 @@ describe('Given getPublishCommand function', () => {
   })
 })
 
+describe('Given getPublishCommand function with staging', () => {
+  const options = {
+    tag: 'latest',
+    registryTarget: { ...registryTarget, otp: '111111' },
+    dryRun: false,
+    cwd: '/project',
+  }
+
+  it('Then stages with npm and pnpm, with JSON output and never a one-time password', () => {
+    expect(getPublishCommand({
+      ...options,
+      packageManager: 'npm',
+      staged: true,
+      otp: '222222',
+    }))
+      .toBe('npm stage publish --tag latest --registry https://registry.npmjs.org/ --access public --json')
+    expect(getPublishCommand({ ...options, packageManager: 'pnpm', staged: true }))
+      .toBe('pnpm stage publish --tag latest --registry https://registry.npmjs.org/ --access public --no-git-checks --json')
+  })
+
+  it('Then adds the extra arguments and the dry run', () => {
+    expect(getPublishCommand({
+      ...options,
+      packageManager: 'npm',
+      staged: true,
+      dryRun: true,
+      extraArgs: ['--provenance'],
+    }))
+      .toBe('npm stage publish --tag latest --registry https://registry.npmjs.org/ --access public --json --provenance --dry-run')
+  })
+
+  it('Then refuses to stage with yarn and bun, which go through packAndUpload', () => {
+    expect(() => getPublishCommand({ ...options, packageManager: 'bun', staged: true })).toThrow(/bun cannot stage a version by itself/)
+    expect(() => getPublishCommand({ ...options, packageManager: 'yarn', staged: true })).toThrow(/yarn cannot stage/)
+  })
+
+  it('Then uploads a tarball with npm, quoted', () => {
+    expect(getPublishCommand({
+      ...options,
+      packageManager: 'bun',
+      staged: true,
+      tarball: '/var/relizy pack/it\'s.tgz',
+    }))
+      .toBe(`npm stage publish '/var/relizy pack/it'\\''s.tgz' --tag latest --registry https://registry.npmjs.org/ --access public --json`)
+  })
+
+  it('Then quotes the tarball with double quotes on Windows', () => {
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    expect(getPublishCommand({ ...options, packageManager: 'npm', tarball: 'C:\\Cache\\a.tgz' }))
+      .toBe('npm publish "C:\\Cache\\a.tgz" --tag latest --registry https://registry.npmjs.org/ --otp 111111 --access public --yes --json')
+    platform.mockRestore()
+  })
+})
+
 describe('Given the errors of a failed publish', () => {
   it('Then recognizes the ones asking for a one-time password', () => {
     expect(isOtpError(new Error('npm error code EOTP'))).toBe(true)
@@ -214,6 +268,23 @@ describe('Given publishToRegistry function', () => {
 
     expect(execPromise).not.toHaveBeenCalled()
     expect(logger.info).toHaveBeenCalledWith('[dry-run] Skipping actual publish for pkg-a@1.0.1')
+  })
+
+  it('Then returns the output of a staged publish', async () => {
+    vi.mocked(execPromise).mockResolvedValue({ stdout: '+ pkg-a@1.0.1 (staged with id x)', stderr: '' })
+    const logger = {
+      info: vi.fn(),
+    }
+
+    await expect(publishToRegistryWithResult({ ...options, staged: true, logger })).resolves.toEqual({ stdout: '+ pkg-a@1.0.1 (staged with id x)' })
+    expect(execPromise).toHaveBeenCalledWith('npm stage publish --tag latest --registry https://registry.npmjs.org/ --access public --json', expect.objectContaining({ cwd: '/project/packages/pkg-a' }))
+    expect(logger.info).toHaveBeenCalledWith('Staging pkg-a@1.0.1 with tag "latest"')
+  })
+
+  it('Then returns an empty output when a dry run skips the command', async () => {
+    await expect(publishToRegistryWithResult({ ...options, packageManager: 'yarn', dryRun: true })).resolves.toEqual({ stdout: '' })
+    vi.mocked(execPromise).mockResolvedValue(undefined as never)
+    await expect(publishToRegistryWithResult(options)).resolves.toEqual({ stdout: '' })
   })
 
   it('Then goes back to the project when the publish fails', async () => {

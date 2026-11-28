@@ -4,6 +4,7 @@ import process from 'node:process'
 import { execPromise } from '@maz-ui/node'
 import { isYarnBerry } from './package-manager'
 import { withRegistryNpmrc } from './registry'
+import { StagingUnavailableError } from './stage-publish'
 import { isPrerelease } from './version'
 
 /**
@@ -26,6 +27,84 @@ export function getPublishTag(version: string, configTag?: string): string {
     : 'latest')
 }
 
+/**
+ * Quote a path for the shell running the command: double quotes on Windows,
+ * single quotes elsewhere (no expansion of `$` nor backticks)
+ */
+export function quoteShellPath(path: string): string {
+  return process.platform === 'win32'
+    ? `"${path.replaceAll('"', '\\"')}"`
+    : `'${path.replaceAll('\'', '\'\\\'\'')}'`
+}
+
+/**
+ * The arguments of a staged publish (`stage publish`) or of a tarball upload
+ * with npm. Staging never passes `--otp`: `npm stage publish` bypasses the
+ * one-time password, the approval asks for the 2FA.
+ */
+function getStageOrUploadArgs({
+  packageManager,
+  tag,
+  registryTarget,
+  otp,
+  dryRun,
+  extraArgs,
+  staged,
+  tarball,
+}: {
+  packageManager: PackageManager
+  tag: string
+  registryTarget: RegistryTarget
+  otp?: string
+  dryRun?: boolean
+  extraArgs: string[]
+  staged: boolean
+  tarball?: string
+}): string[] {
+  const args = staged
+    ? ['stage', 'publish']
+    : ['publish']
+
+  if (tarball) {
+    args.push(quoteShellPath(tarball))
+  }
+
+  args.push('--tag', tag)
+
+  if (registryTarget.registry) {
+    args.push('--registry', registryTarget.registry)
+  }
+
+  const finalOtp = otp ?? registryTarget.otp
+  if (!staged && finalOtp) {
+    args.push('--otp', finalOtp)
+  }
+
+  if (registryTarget.access) {
+    args.push('--access', registryTarget.access)
+  }
+
+  if (!staged && !tarball) {
+    throw new Error(`Unreachable: ${packageManager} publish without stage nor tarball`)
+  }
+
+  if (packageManager === 'pnpm' && !tarball) {
+    args.push('--no-git-checks')
+  }
+  else if (!staged) {
+    // A direct upload of a tarball with npm
+    args.push('--yes')
+  }
+
+  args.push('--json', ...extraArgs)
+
+  if (dryRun) {
+    args.push('--dry-run')
+  }
+
+  return args
+}
+
 function getCommandArgs<T extends 'auth' | 'publish'>({
   packageManager,
   tag,
@@ -35,6 +114,8 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   dryRun,
   cwd,
   extraArgs = [],
+  staged = false,
+  tarball,
 }: {
   packageManager: PackageManager
   tag: T extends 'publish' ? string : undefined
@@ -44,7 +125,24 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   dryRun?: boolean
   cwd: string
   extraArgs?: string[]
+  /** `<pm> stage publish` instead of `<pm> publish` (npm, pnpm) */
+  staged?: boolean
+  /** Path of a tarball to upload with npm, quoted */
+  tarball?: string
 }) {
+  if (type === 'publish' && (staged || tarball)) {
+    return getStageOrUploadArgs({
+      packageManager,
+      tag: tag as string,
+      registryTarget,
+      otp,
+      dryRun,
+      extraArgs,
+      staged,
+      tarball,
+    })
+  }
+
   const args = type === 'publish'
     ? ['publish', '--tag', tag]
     : ['whoami']
@@ -148,9 +246,13 @@ export function getAuthCommand({
  * @param options.dryRun - Appends `--dry-run`.
  * @param options.cwd - Root of the project, where `.yarnrc.yml` tells Yarn Berry.
  * @param options.extraArgs - Arguments added to the publish command.
- * @returns The command line. The token is not in it, `withRegistryNpmrc` injects it.
+ * @param options.staged - Stage the version instead of publishing it (`false` by default): `npm stage publish` or `pnpm stage publish`, with `--json` and never `--otp`. Other package managers throw `StagingUnavailableError`, they stage through `packAndUpload`.
+ * @param options.tarball - Upload this tarball with npm instead (`npm [stage] publish '<tarball>' ... --json`), the command of `packAndUpload`.
+ * @returns The command line. The token is not in it, `withRegistryNpmrc` injects it. Without `staged` nor `tarball`, the command is the one of earlier versions.
  * @example
  * ```ts
+ * getPublishCommand({ packageManager: 'npm', tag: 'latest', registryTarget: { registry: 'https://registry.npmjs.org/' }, dryRun: false, cwd: '/repo', staged: true })
+ * // 'npm stage publish --tag latest --registry https://registry.npmjs.org/ --json'
  * getPublishCommand({
  *   packageManager: 'npm',
  *   tag: 'latest',
@@ -169,6 +271,8 @@ export function getPublishCommand({
   dryRun,
   cwd,
   extraArgs,
+  staged = false,
+  tarball,
 }: {
   packageManager: PackageManager
   /** Dist-tag to publish to */
@@ -181,6 +285,10 @@ export function getPublishCommand({
   cwd: string
   /** Arguments added to the publish command */
   extraArgs?: string[]
+  /** Stage the version (`npm stage publish`, `pnpm stage publish`) instead of publishing it, `false` by default */
+  staged?: boolean
+  /** Upload this tarball with npm (`npm [stage] publish <tarball>`) instead of publishing the directory */
+  tarball?: string
 }): string {
   const args = getCommandArgs<'publish'>({
     packageManager,
@@ -191,7 +299,17 @@ export function getPublishCommand({
     type: 'publish',
     cwd,
     extraArgs,
+    staged,
+    tarball,
   })
+
+  if (tarball) {
+    return `npm ${args.join(' ')}`
+  }
+
+  if (staged && packageManager !== 'npm' && packageManager !== 'pnpm') {
+    throw new StagingUnavailableError(`${packageManager} cannot stage a version by itself: pack the package and upload it with npm (packAndUpload)`)
+  }
 
   const baseCommand = packageManager === 'yarn' && isYarnBerry(cwd)
     ? 'yarn npm'
@@ -250,6 +368,30 @@ export function isPaymentRequiredError(error: unknown): boolean {
   return ['e402', '402 payment required', 'sign up for private packages'].some(pattern => searchText.includes(pattern))
 }
 
+/** The options of `publishToRegistry` and `publishToRegistryWithResult` */
+export interface PublishToRegistryOptions {
+  /** The package: its name and its directory */
+  pkg: Pick<ReadPackage, 'name' | 'path'>
+  /** Root of the project, where its `.npmrc` is */
+  cwd: string
+  packageManager: PackageManager
+  registryTarget: RegistryTarget
+  /** Dist-tag to publish to */
+  tag: string
+  /** One-time password, else the one of the registry target */
+  otp?: string
+  /** Arguments added to the publish command */
+  extraArgs?: string[]
+  dryRun: boolean
+  /** `name@version`, to name the package in the logs */
+  packageNameAndVersion: string
+  /** Names the registry in the logs, when there are several */
+  registryLabel?: string
+  /** Log level of the commands run */
+  logLevel?: ExecLogLevel
+  logger?: CoreLogger
+}
+
 /**
  * Publish a package to a registry with the package manager, once: the token
  * and the scope registry of the registry target are written to the `.npmrc` of
@@ -288,7 +430,38 @@ export function isPaymentRequiredError(error: unknown): boolean {
  * })
  * ```
  */
-export async function publishToRegistry({
+export async function publishToRegistry(options: PublishToRegistryOptions): Promise<void> {
+  await publishToRegistryWithResult(options)
+}
+
+/**
+ * `publishToRegistry`, returning the output of the command, and able to stage
+ * the version with npm or pnpm (`staged`): the stage id is in the output, see
+ * `parseStageOutput`. Yarn and bun stage through `packAndUpload`.
+ *
+ * @param options - The options of `publishToRegistry`, plus `staged`.
+ * @param options.pkg - Name and directory of the package.
+ * @param options.cwd - Root of the project, where its `.npmrc` is.
+ * @param options.packageManager - Package manager that runs the publish.
+ * @param options.registryTarget - Registry to publish to, with its optional token.
+ * @param options.tag - Dist-tag to publish to.
+ * @param options.otp - One-time password, else the one of the registry target (never passed when staging).
+ * @param options.extraArgs - Arguments added to the publish command.
+ * @param options.dryRun - Passes `--dry-run` to npm and pnpm, skips the command for yarn and bun.
+ * @param options.packageNameAndVersion - `name@version`, to name the package in the logs.
+ * @param options.registryLabel - Appended to the log line, to name the registry when there are several (empty by default).
+ * @param options.logLevel - Log level of the commands run.
+ * @param options.logger - Receives the progress messages.
+ * @param options.staged - Stage the version (`npm stage publish`, `pnpm stage publish`), `false` by default.
+ * @returns `{ stdout }`, the output of the command (empty when a dry run skips it).
+ * @throws The error of the command (see `isStageRequiredError`, `isVersionAlreadyStagedError`, `isOtpError`...), or `StagingUnavailableError` when `staged` is asked of yarn or bun.
+ * @example
+ * ```ts
+ * const { stdout } = await publishToRegistryWithResult({ ...options, staged: true })
+ * parseStageOutput(stdout).stageId
+ * ```
+ */
+export async function publishToRegistryWithResult({
   pkg,
   cwd,
   packageManager,
@@ -301,28 +474,11 @@ export async function publishToRegistry({
   registryLabel = '',
   logLevel,
   logger,
-}: {
-  /** The package: its name and its directory */
-  pkg: Pick<ReadPackage, 'name' | 'path'>
-  /** Root of the project, where its `.npmrc` is */
-  cwd: string
-  packageManager: PackageManager
-  registryTarget: RegistryTarget
-  /** Dist-tag to publish to */
-  tag: string
-  /** One-time password, else the one of the registry target */
-  otp?: string
-  /** Arguments added to the publish command */
-  extraArgs?: string[]
-  dryRun: boolean
-  /** `name@version`, to name the package in the logs */
-  packageNameAndVersion: string
-  /** Names the registry in the logs, when there are several */
-  registryLabel?: string
-  /** Log level of the commands run */
-  logLevel?: ExecLogLevel
-  logger?: CoreLogger
-}): Promise<void> {
+  staged = false,
+}: PublishToRegistryOptions & {
+  /** Stage the version instead of publishing it */
+  staged?: boolean
+}): Promise<{ stdout: string }> {
   try {
     const command = getPublishCommand({
       packageManager,
@@ -332,6 +488,7 @@ export async function publishToRegistry({
       dryRun,
       cwd,
       extraArgs,
+      staged,
     })
 
     process.chdir(pkg.path)
@@ -340,24 +497,26 @@ export async function publishToRegistry({
     // the duration of the publish (restored afterwards), so scoped packages
     // reach this exact registry and authentication works on every package
     // manager and version - no CLI rc-option flags involved.
-    await withRegistryNpmrc({
+    return await withRegistryNpmrc({
       cwd,
       registryTarget,
       packageName: pkg.name,
       packageManager,
       logger,
       fn: async () => {
-        logger?.info?.(`${dryRun ? '[dry-run] ' : ''}Publishing ${packageNameAndVersion} with tag "${tag}"${registryLabel}`)
+        logger?.info?.(`${dryRun ? '[dry-run] ' : ''}${staged
+          ? 'Staging'
+          : 'Publishing'} ${packageNameAndVersion} with tag "${tag}"${registryLabel}`)
 
         const dryRunPublish = dryRun && packageManager !== 'npm' && packageManager !== 'pnpm'
 
         if (dryRunPublish) {
           logger?.info?.(`${dryRun ? '[dry-run] ' : ''}Skipping actual publish for ${packageNameAndVersion}`)
-          return
+          return { stdout: '' }
         }
 
         // execPromise already logs stdout/stderr in debug with secrets masked.
-        await execPromise(command, {
+        const result = await execPromise(command, {
           noStderr: true,
           noStdout: true,
           noSuccess: true,
@@ -365,6 +524,8 @@ export async function publishToRegistry({
           logLevel,
           cwd: pkg.path,
         })
+
+        return { stdout: result?.stdout ?? '' }
       },
     })
   }

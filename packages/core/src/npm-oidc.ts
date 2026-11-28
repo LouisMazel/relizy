@@ -115,7 +115,8 @@ export function getTrustedPublishing({ registry, token, env = process.env }: { r
   return getTrustedPublishingProvider(env)
 }
 
-function readVersion(command: string, cwd: string): string | undefined {
+/** The version printed by `<command> --version` in `cwd`, internal to core */
+export function readToolVersion(command: string, cwd: string): string | undefined {
   try {
     return semver.valid(execSync(`${command} --version`, {
       cwd,
@@ -141,7 +142,7 @@ function readVersion(command: string, cwd: string): string | undefined {
  */
 export function getPublishingNpmVersion(packageManager: PackageManager, cwd: string): string | undefined {
   if (packageManager === 'pnpm') {
-    const pnpmVersion = readVersion('pnpm', cwd)
+    const pnpmVersion = readToolVersion('pnpm', cwd)
     if (pnpmVersion && semver.major(pnpmVersion) >= 11) {
       return undefined
     }
@@ -150,7 +151,7 @@ export function getPublishingNpmVersion(packageManager: PackageManager, cwd: str
     return undefined
   }
 
-  return readVersion('npm', cwd)
+  return readToolVersion('npm', cwd)
 }
 
 /**
