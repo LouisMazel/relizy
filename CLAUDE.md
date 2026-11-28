@@ -18,6 +18,7 @@ In `packages/relizy/`:
 - `src/commands/` - one file per CLI command (`init`, `bump`, `changelog`, `publish`, `provider-release`, `release`, `social`, `sync`, `pr-comment`, `commitlint`, `merge-preview`, `mcp`)
 - `src/core/` - orchestration; package discovery is `getPackages()` in `repo.ts`, the defaults are `getDefaultConfig()` in `config.ts`. Modules moved to `@relizy/core` are imported from it directly, with no re-exporting file; adapters bind it to the config and the logger (`npm-registry.ts`, `gitlab.ts`, `ci.ts`...), and `vi.mock` of a function called inside core must target the core file
 - `src/core/mcp/` - MCP server for AI agents, `relizy mcp`
+- `src/core/release-ui.ts` - the terminal output of the commands (clack), its rules in `packages/relizy/CLAUDE.md`
 - `src/cli.ts` - Commander.js setup; `getReleaseType()` converts the CLI flags to semver bump types
 - `src/types.ts` - types of all configuration and option objects, and the source of the config reference of the docs; a type is declared once: the ones core also uses (`RepoConfig`, `RegistryTarget`, `PackageManager`...) are declared in core and re-exported from here, the extractor of the reference (`src/core/mcp/knowledge/generate.ts`) reads them from the sources of core
 - `bin/relizy.mjs` - executable entry of the published package, it must keep its `#!/usr/bin/env node` shebang
@@ -29,6 +30,8 @@ In `packages/relizy/`:
 - The packages read `@relizy/core` from its sources (`paths` of `tsconfig.json`, alias of the vitest config of relizy); the built `dist` is only needed to run the published bin
 
 ## Architecture
+
+Before writing a helper, search the exports of core and the modules of `src/core/` for one that does it, and reuse or extend it: a behavior needed in several places (a prompt, the 2FA of npm in `two-factor.ts`, an output) lives in one shared function, never copied.
 
 ### Monorepo Version Modes
 
