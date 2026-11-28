@@ -333,6 +333,9 @@ importers:
       fast-glob:
         specifier: ^3.3.3
         version: 3.3.3
+      magicast:
+        specifier: ^0.5.5
+        version: 0.5.5
       mdast-util-from-markdown:
         specifier: ^2.1.0
         version: 2.1.0(supports-color@7.2.0)

@@ -11,12 +11,16 @@ import { recordReleaseFile } from './release-files'
 import { getPackageCommits } from './repo'
 import { executeHook } from './utils'
 
-function isFullChangelogOutput(include: ChangelogInclude | undefined, minify?: boolean): boolean {
+/** The entry of the changelog file: title, compare link and body, unminified (the contributors may be left out, as in the previews) */
+function isChangelogEntryOutput(include: ChangelogInclude | undefined, minify?: boolean): boolean {
   return !minify
     && (include?.title ?? true)
     && (include?.compareLink ?? true)
     && (include?.body ?? true)
-    && (include?.contributors ?? true)
+}
+
+function isFullChangelogOutput(include: ChangelogInclude | undefined, minify?: boolean): boolean {
+  return isChangelogEntryOutput(include, minify) && (include?.contributors ?? true)
 }
 
 /**
@@ -110,13 +114,13 @@ export async function generateChangelog(
 
     const isFullOutput = isFullChangelogOutput(include, minify)
 
-    // The "no relevant changes" placeholder only belongs in the canonical
-    // changelog file. Partial outputs (provider release notes, social
-    // posts, body-only probes) must stay literally empty when there are no
-    // commits, otherwise:
+    // The "no relevant changes" placeholder only belongs in the entry of the
+    // changelog file, and in its previews (without the contributors).
+    // Partial outputs (provider release notes, social posts, body-only
+    // probes) must stay literally empty when there are no commits, otherwise:
     //   - GitLab would skip its empty-release guard and publish empty releases
     //   - Social posts would see `hasContent=true` and post the placeholder
-    if (commits.length === 0 && (include?.body ?? true) && isFullOutput) {
+    if (commits.length === 0 && isChangelogEntryOutput(include, minify)) {
       changelog = `${changelog}\n\n${displayConfig.templates.emptyChangelogContent}`
     }
 

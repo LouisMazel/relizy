@@ -163,6 +163,21 @@ describe('Given the events of a command', () => {
       ])
     })
 
+    it('Then gives onPrompt to the commands run by the command, apart from onConfirm', () => {
+      const onPrompt = vi.fn()
+      const onConfirm = vi.fn()
+      const seen: ReturnType<typeof getAppHandlers>[] = []
+
+      runWithEvents(undefined, () => {
+        runWithEvents(undefined, () => {
+          seen.push(getAppHandlers())
+        })
+      }, { onConfirm, onPrompt })
+
+      expect(seen[0]!.onPrompt).toBe(onPrompt)
+      expect(seen[0]!.onConfirm).toBe(onConfirm)
+    })
+
     it('Then there is none out of a command', () => {
       expect(getAppHandlers()).toEqual({})
     })

@@ -254,6 +254,7 @@ function installHook(cwd: string, force?: boolean): CommitlintRunResult {
     kept: `A commit-msg hook already exists (${hook.path}): kept, add "${COMMIT_MSG_HOOK_COMMAND}" to it, or run with --force to replace it`,
     created: `✔ commit-msg hook created: ${hook.path}`,
     replaced: `✔ commit-msg hook replaced: ${hook.path}`,
+    added: `✔ relizy commitlint added to the commit-msg hook: ${hook.path}`,
   }
   print([
     messages[hook.status],

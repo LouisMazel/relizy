@@ -33,7 +33,7 @@ inputs:
     required: false
     default: ${{ github.token }}
   npm-token:
-    description: npm token, not needed with npm trusted publishing (permission id-token write)
+    description: npm token, not needed with npm trusted publishing (permission id-token write, set up with relizy trust); only for a restricted package, another registry, or the first publish of a new package
     required: false
     default: ''
   slack-token:
@@ -118,8 +118,20 @@ outputs:
     description: The links of what the release created, comma-separated
     value: ${{ steps.release.outputs.urls }}
   install:
-    description: The install command of the released packages
+    description: The install command of the released packages, the installable ones only (never a version still staged)
     value: ${{ steps.release.outputs.install }}
+  staged:
+    description: true when the release staged versions on npm (publish.staged), empty otherwise
+    value: ${{ steps.release.outputs.staged }}
+  stage_ids:
+    description: The ids of the staged versions, comma-separated
+    value: ${{ steps.release.outputs.stage_ids }}
+  awaiting_approval:
+    description: The staged versions still awaiting approval, comma-separated name@version
+    value: ${{ steps.release.outputs.awaiting_approval }}
+  publish_auth:
+    description: How the staged publish authenticated, oidc, token or npmrc
+    value: ${{ steps.release.outputs.publish_auth }}
   failed_steps:
     description: The steps that failed without stopping the release, comma-separated
     value: ${{ steps.release.outputs.failed_steps }}
@@ -212,9 +224,9 @@ runs:
       env:
         CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-code-oauth-token }}
       run: |
-        # npm trusted publishing (OIDC) needs npm 11.5.1 or later, when the job can request an id token
-        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && ! node -e "const [a, b, c] = process.argv[1].split('.').map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)" "$(npm --version)"; then
-          npm install -g npm@latest
+        # npm trusted publishing (OIDC) needs npm 11.5.1 or later, staged publishing 11.15.0: npm 11 runs on the Node of every project
+        if ! node -e "const [a, b] = process.argv[1].split('.').map(Number); process.exit(a > 11 || (a === 11 && b >= 15) ? 0 : 1)" "$(npm --version)"; then
+          npm install -g npm@11 || echo "Could not update npm to 11: staged publishing needs npm 11.15.0 or later"
         fi
         # The claude-code provider of the AI rewrites runs the claude CLI
         if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] && ! command -v claude > /dev/null; then

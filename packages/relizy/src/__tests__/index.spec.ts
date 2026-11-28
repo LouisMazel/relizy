@@ -28,7 +28,9 @@ describe('Given the public API of relizy', () => {
         'publish',
         'release',
         'social',
+        'stage',
         'sync',
+        'trust',
       ])
     })
   })

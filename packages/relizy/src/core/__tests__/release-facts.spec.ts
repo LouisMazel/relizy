@@ -144,6 +144,46 @@ describe('Given the publication of a release', () => {
     expect(getReleasePublish({ config, packages: [] })).toBeUndefined()
   })
 
+  it('Then lists the staged versions and the auth, and installs only the installable ones', () => {
+    const config = createMockConfig({
+      publish: { packageManager: 'pnpm', registry: 'https://registry.npmjs.org/' },
+      tokens: { registry: 'npm_token' },
+    })
+    const staged = [
+      {
+        name: 'relizy',
+        version: '2.0.0',
+        tag: 'latest',
+        registry: 'https://registry.npmjs.org/',
+        stageId: 'a1',
+      },
+    ]
+
+    expect(getReleasePublish({
+      config,
+      packages: [stable, beta],
+      staged,
+    })).toEqual({
+      tags: ['latest', 'next'],
+      registries: ['registry.npmjs.org'],
+      install: 'pnpm add @relizy/beta@2.0.0-beta.0',
+      staged,
+      auth: 'token',
+    })
+    expect(getReleasePublish({
+      config,
+      packages: [stable],
+      staged,
+    })).not.toHaveProperty('install')
+    expect(getReleasePublish({
+      config,
+      packages: [stable],
+      staged: [
+        { ...staged[0]!, approved: true },
+      ],
+    })).toMatchObject({ install: 'pnpm add relizy@2.0.0' })
+  })
+
   it('Then links the npm pages of the versions published on npm only', () => {
     expect(getNpmLinks({
       config: createMockConfig({}),

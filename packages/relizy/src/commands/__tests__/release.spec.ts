@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
-import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, checkGitStatusIfDirty, fetchGitTags, prepareCiRepository } from '@relizy/core'
+import { logger } from '@maz-ui/node'
+import { approveStagedVersions, assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, checkGitStatusIfDirty, fetchGitTags, prepareCiRepository } from '@relizy/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { anyHookContext, createMockConfig, setInteractiveTerminal } from '../../../tests/mocks'
 import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, RelizyCancelError, rollbackModifiedFiles } from '../../core'
 import { ensurePushAccess } from '../../core/ci'
 import { recordAIRewrite } from '../../core/progress'
 
+import { recordStagedVersion } from '../../core/staging'
 import { bump } from '../bump'
 import { changelog } from '../changelog'
 import { prComment } from '../pr-comment'
@@ -26,6 +28,7 @@ vi.mock('@relizy/core', async importActual => ({
   fetchGitTags: vi.fn(),
   assertBranchUpToDateWithRemote: vi.fn(),
   assertReleaseTagsAvailable: vi.fn(),
+  approveStagedVersions: vi.fn(),
 }))
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')
@@ -62,6 +65,7 @@ vi.mock('../provider-release', async importActual => ({
 vi.mock('../social', async importActual => ({
   describeSocialResult: (await importActual<typeof import('../social')>()).describeSocialResult,
   isAnySocialPlatformEnabled: (await importActual<typeof import('../social')>()).isAnySocialPlatformEnabled,
+  getSocialStepSkip: (await importActual<typeof import('../social')>()).getSocialStepSkip,
   social: vi.fn(),
   socialSafetyCheck: vi.fn(),
 }))
@@ -1212,6 +1216,147 @@ describe('Given the report of release', () => {
     ])
   })
 
+  describe('When the release stages its versions', () => {
+    const pkg = {
+      name: 'pkg',
+      version: '0.9.0',
+      newVersion: '1.0.0',
+      path: '/p',
+      private: false,
+      dependencies: [],
+      commits: [],
+    } as any
+
+    beforeEach(async () => {
+      const config = await loadRelizyConfig()
+      config.publish.staged = true
+      config.publish.approve = 'prompt'
+      config.publish.registry = 'https://registry.npmjs.org/'
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(bump).mockResolvedValue({
+        newVersion: '1.0.0',
+        oldVersion: '0.9.0',
+        bumpedPackages: [pkg],
+        bumped: true,
+      })
+      vi.mocked(publish).mockImplementation(() => {
+        recordStagedVersion({
+          name: 'pkg',
+          version: '1.0.0',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: 'a1',
+        })
+        return Promise.resolve({
+          publishedPackages: [pkg],
+        })
+      })
+      vi.mocked(approveStagedVersions).mockImplementation(({ versions }) => Promise.resolve(versions.map(version => ({ ...version, status: 'approved' as const }))))
+      for (const key of [
+        'CI',
+        'GITHUB_ACTIONS',
+        'GITHUB_WORKFLOW',
+        'CONTINUOUS_INTEGRATION',
+        'BUILD_ID',
+        'GITLAB_CI',
+        'NPM_ID_TOKEN',
+        'ACTIONS_ID_TOKEN_REQUEST_URL',
+      ]) {
+        vi.stubEnv(key, '')
+      }
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('Then approves them after the provider release, before the posts, with one 2FA, and the report tells it', async () => {
+      const onPrompt = vi.fn().mockResolvedValue(true)
+
+      const report = await release({
+        onPrompt,
+        onOtp: () => '123456',
+        onConfirm: () => true,
+      })
+
+      expect(onPrompt).toHaveBeenCalledWith(expect.objectContaining({ kind: 'approve-staged' }))
+      expect(report.steps.map(step => step.name)).toEqual([
+        'changelog',
+        'publish',
+        'commit',
+        'push',
+        'providerRelease',
+        'approve',
+        'social',
+        'prComment',
+      ])
+      expect(report.steps.find(step => step.name === 'approve')).toEqual({ name: 'approve', status: 'done', detail: 'Approved 1 staged version' })
+      expect(report.publish).toMatchObject({
+        staged: [
+          { name: 'pkg', approved: true },
+        ],
+        install: expect.stringContaining('pkg@1.0.0'),
+      })
+      expect(social).toHaveBeenCalled()
+    })
+
+    it('Then approves a canary right after its publish, then rolls its files back', async () => {
+      const config = await loadRelizyConfig()
+      config.release.canary = true
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+      const report = await release({
+        canary: true,
+        onPrompt: () => true,
+        onOtp: () => '1',
+        onConfirm: () => true,
+      })
+
+      expect(report.steps.find(step => step.name === 'approve')).toMatchObject({ status: 'done' })
+      expect(vi.mocked(approveStagedVersions).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(rollbackModifiedFiles).mock.invocationCallOrder.at(-1)!)
+    })
+
+    it('Then keeps the versions staged before a failed publish, and tells how to approve or reject them', async () => {
+      vi.mocked(publish).mockImplementation(() => {
+        recordStagedVersion({
+          name: 'pkg',
+          version: '1.0.0',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: 'a1',
+        })
+        return Promise.reject(new Error('E403'))
+      })
+
+      await expect(release({
+        onConfirm: () => true,
+      })).rejects.toThrow('E403')
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Staged before the failure, still awaiting approval: pkg@1.0.0. Approve them with "relizy stage approve", or reject them with "relizy stage reject pkg"'))
+    })
+
+    it('Then never fails the release when nothing is approved: the posts wait, the report lists what awaits', async () => {
+      const report = await release({
+        onPrompt: () => false,
+        onConfirm: () => true,
+      })
+
+      expect(report.status).toBe('released')
+      expect(report.steps.find(step => step.name === 'approve')).toMatchObject({ status: 'skipped' })
+      expect(report.publish).not.toHaveProperty('install')
+      expect(report.publish!.staged).toEqual([
+        {
+          name: 'pkg',
+          version: '1.0.0',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: 'a1',
+        },
+      ])
+      expect(social).not.toHaveBeenCalled()
+      expect(approveStagedVersions).not.toHaveBeenCalled()
+    })
+  })
+
   it('Then is not released in dry-run', async () => {
     vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
 
@@ -1376,6 +1521,27 @@ describe('Given the output of release in CI', () => {
       expect.stringMatching(/^✔ twitter skipped \(prerelease\) {2}\d+ms$/),
       expect.stringMatching(/^ {2}○ Social media +skipped \(twitter: prerelease\)$/),
     ]))
+  })
+
+  it('Then skips the social posts without platform enabled, with why', async () => {
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      release: { social: true, prComment: false },
+      social: {
+        twitter: { enabled: false },
+        slack: { enabled: false },
+      },
+    }))
+    vi.mocked(bump).mockResolvedValue({
+      newVersion: '1.0.0',
+      oldVersion: '0.9.0',
+      bumped: true,
+      bumpedPackages: [],
+    })
+
+    await release({ safetyCheck: false })
+
+    expect(social).not.toHaveBeenCalled()
+    expect(output.join('').split('\n')).toContain('○ Social posts skipped (no platform enabled)')
   })
 
   it('Then marks the steps that failed without stopping the release', async () => {

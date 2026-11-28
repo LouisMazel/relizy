@@ -38,7 +38,7 @@ Relizy reads your [Conventional Commits](https://www.conventionalcommits.org) an
 - **Monorepos and single packages**: `unified`, `selective` (one version, only the changed packages) and `independent` version modes, and [version groups](https://relizy.dev/guide/version-groups) to release several sets of packages, each with its mode, in one run.
 - **Dependencies handled**: the packages depending on a bumped package are bumped too, including through peer dependencies whose published range would reject the new version, and pnpm/yarn/bun catalogs.
 - **Changelogs** per package and at the root, optionally rewritten by AI for the release notes and the posts.
-- **Publishing** to npm or any registry (several registries, 2FA, `workspace:` checks, publish order), with npm, pnpm, yarn and bun.
+- **Publishing** to npm or any registry (several registries, 2FA, `workspace:` checks, publish order), with npm, pnpm, yarn and bun, with [trusted publishing](https://relizy.dev/guide/trusted-publishing) (`relizy trust`) and [staged publishing](https://relizy.dev/guide/staged-publishing): versions approved with one 2FA before they are installable.
 - **Prereleases and canary releases** (`--prerelease --preid beta`, `--canary` from any commit).
 - **Private apps**: a project marked `"private": true` is versioned, tagged and released, never published.
 - **CI ready**: the official GitHub Action (`relizy/action@v2`) and GitLab CI component (`gitlab.com/relizy/relizy/release@2`) release in one step, `relizy init` writes them, and relizy handles shallow clones, detached HEADs, the git identity and the push access by itself.

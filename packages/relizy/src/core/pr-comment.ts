@@ -1,7 +1,18 @@
 import type { GitProvider, PrCommentMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { detectGitProvider, getCurrentGitBranch, GITLAB_JOB_TOKEN_MR_COMMENT_WARNING, isGitlabJobToken } from '@relizy/core'
+import { detectGitProvider, getCurrentGitBranch, getGitlabAuthHeader, GITLAB_JOB_TOKEN_MR_COMMENT_WARNING, isGitlabJobToken } from '@relizy/core'
+import { readGitHubEvent } from './merge-preview/context'
+
+/**
+ * The auth header of the merge request requests: `PRIVATE-TOKEN`, or
+ * `Authorization: Bearer` for an OAuth token (the one of `glab auth login`).
+ * Never `JOB-TOKEN`: the job token cannot comment a merge request
+ */
+function gitlabAuthHeader(token: string): Record<string, string> {
+  return getGitlabAuthHeader(token, {})
+}
 
 export interface PullRequestInfo {
   /**
@@ -98,7 +109,7 @@ export async function findGitLabMR({
 
   const response = await fetch(url, {
     headers: {
-      'PRIVATE-TOKEN': token,
+      ...gitlabAuthHeader(token),
     },
   })
 
@@ -149,11 +160,21 @@ function buildPrOverrideInfo(provider: GitProvider, prNumber: number, repo: stri
   return null
 }
 
+/** A pull request of a commit, with where it merges and whether it is merged */
+interface CommitPullRequest extends PullRequestInfo {
+  merged: boolean
+  targetBranch?: string
+}
+
+function toPullRequestInfo({ merged: _merged, targetBranch: _targetBranch, ...pr }: CommitPullRequest): PullRequestInfo {
+  return pr
+}
+
 /**
- * The pull request of a commit, merged or not: the release of a merge on the
+ * The pull requests of a commit, merged or not: the release of a merge on the
  * default branch comments the pull request it merged
  */
-async function findGitHubPrOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<PullRequestInfo | null> {
+async function listGitHubPrsOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<CommitPullRequest[] | null> {
   const url = `${getGitHubApiBase(domain)}/repos/${repo}/commits/${sha}/pulls`
 
   logger.debug(`Querying GitHub API for the pull requests of the commit: ${url}`)
@@ -170,29 +191,29 @@ async function findGitHubPrOfCommit({ token, repo, sha, domain }: { token: strin
     return null
   }
 
-  const [pr] = await response.json() as Array<{ number: number, html_url: string }>
+  const pulls = await response.json() as Array<{ number: number, html_url: string, merged_at?: string | null, base?: { ref?: string } }>
 
-  return pr
-    ? {
-        number: pr.number,
-        url: pr.html_url,
-        provider: 'github',
-        ofCommit: true,
-      }
-    : null
+  return pulls.map(pr => ({
+    number: pr.number,
+    url: pr.html_url,
+    provider: 'github',
+    ofCommit: true,
+    merged: Boolean(pr.merged_at),
+    targetBranch: pr.base?.ref,
+  }))
 }
 
 /**
- * The merge request of a commit, merged or not
+ * The merge requests of a commit, merged or not
  */
-async function findGitLabMrOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<PullRequestInfo | null> {
+async function listGitLabMrsOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<CommitPullRequest[] | null> {
   const url = `https://${domain || 'gitlab.com'}/api/v4/projects/${encodeURIComponent(repo)}/repository/commits/${sha}/merge_requests`
 
   logger.debug(`Querying GitLab API for the merge requests of the commit: ${url}`)
 
   const response = await fetch(url, {
     headers: {
-      'PRIVATE-TOKEN': token,
+      ...gitlabAuthHeader(token),
     },
   })
 
@@ -201,28 +222,55 @@ async function findGitLabMrOfCommit({ token, repo, sha, domain }: { token: strin
     return null
   }
 
-  const [mr] = await response.json() as Array<{ iid: number, web_url: string }>
+  const mergeRequests = await response.json() as Array<{ iid: number, web_url: string, state?: string, target_branch?: string }>
 
-  return mr
-    ? {
-        number: mr.iid,
-        url: mr.web_url,
-        provider: 'gitlab',
-        ofCommit: true,
-      }
-    : null
+  return mergeRequests.map(mr => ({
+    number: mr.iid,
+    url: mr.web_url,
+    provider: 'gitlab',
+    ofCommit: true,
+    merged: mr.state === 'merged',
+    targetBranch: mr.target_branch,
+  }))
 }
 
-function findPrOfCommit(provider: GitProvider, token: string, repo: string, sha: string, domain?: string): Promise<PullRequestInfo | null> {
-  if (provider === 'github') {
-    return findGitHubPrOfCommit({ token, repo, sha, domain })
+async function listPrsOfCommit(provider: GitProvider, token: string, repo: string, sha: string, domain?: string): Promise<CommitPullRequest[]> {
+  try {
+    const list = provider === 'github'
+      ? await listGitHubPrsOfCommit({ token, repo, sha, domain })
+      : provider === 'gitlab'
+        ? await listGitLabMrsOfCommit({ token, repo, sha, domain })
+        : null
+
+    return list ?? []
+  }
+  catch (error) {
+    logger.warn(`Could not read the pull requests of the commit ${sha}: ${error}`)
+    return []
+  }
+}
+
+/**
+ * The pull request of a GitHub Actions run started by its merge (`pull_request`
+ * event, `closed` action, merged): the one the release of the merge comments
+ */
+function getMergedPullRequestOfEvent(env: NodeJS.ProcessEnv = process.env): PullRequestInfo | null {
+  if (env.GITHUB_ACTIONS !== 'true' || !env.GITHUB_EVENT_NAME?.startsWith('pull_request')) {
+    return null
   }
 
-  if (provider === 'gitlab') {
-    return findGitLabMrOfCommit({ token, repo, sha, domain })
+  const event = readGitHubEvent(env)
+  const pullRequest = event?.pull_request
+  if (event?.action !== 'closed' || pullRequest?.merged !== true || !Number.isInteger(pullRequest.number) || typeof pullRequest.html_url !== 'string') {
+    return null
   }
 
-  return Promise.resolve(null)
+  return {
+    number: pullRequest.number,
+    url: pullRequest.html_url,
+    provider: 'github',
+    ofCommit: true,
+  }
 }
 
 function findPrForProvider(provider: GitProvider, token: string, repo: string, branch: string, domain?: string): Promise<PullRequestInfo | null> {
@@ -248,6 +296,46 @@ function getProviderToken(config: ResolvedRelizyConfig, provider: GitProvider): 
   }
 
   return undefined
+}
+
+/**
+ * The pull request of a branch and of a commit: the one merged into the
+ * branch by the commit (the release of a merge), else the open one of the
+ * branch, else the first one of the commit
+ */
+async function findReleasePullRequest({ provider, token, repo, domain, branch, sha }: { provider: GitProvider, token: string, repo: string, domain?: string, branch?: string, sha?: string }): Promise<PullRequestInfo | null> {
+  const onBranch = Boolean(branch)
+  const ofCommit = sha
+    ? await listPrsOfCommit(provider, token, repo, sha, domain)
+    : []
+
+  // The release of a merge: the pull request merged into the branch, before an
+  // open pull request from the branch (the one syncing main into develop)
+  const mergedIntoBranch = onBranch
+    ? ofCommit.find(pr => pr.merged && pr.targetBranch === branch)
+    : undefined
+  if (mergedIntoBranch) {
+    logger.debug(`Using the pull request merged into ${branch} by the commit ${sha}: #${mergedIntoBranch.number}`)
+    return toPullRequestInfo(mergedIntoBranch)
+  }
+
+  if (onBranch) {
+    logger.debug(`Detecting PR for branch: ${branch}`)
+    const pr = await findPrForProvider(provider, token, repo, branch!, domain)
+
+    if (pr || !sha) {
+      return pr
+    }
+  }
+
+  logger.debug(`No open PR for the branch, looking for the PR of the commit ${sha}`)
+
+  // A detached HEAD: the pull request the commit merged, else the first one
+  const pr = ofCommit.find(candidate => candidate.merged) ?? ofCommit[0]
+
+  return pr
+    ? toPullRequestInfo(pr)
+    : null
 }
 
 export async function detectPullRequest({
@@ -281,6 +369,15 @@ export async function detectPullRequest({
     return buildPrOverrideInfo(provider, prNumber, repo, domain)
   }
 
+  // A workflow run by the merge of a pull request (`pull_request: closed`)
+  const merged = provider === 'github'
+    ? getMergedPullRequestOfEvent()
+    : null
+  if (merged) {
+    logger.debug(`Using the pull request merged by the event: #${merged.number}`)
+    return merged
+  }
+
   const branch = getCurrentGitBranch(config.cwd)
   const onBranch = Boolean(branch) && branch !== 'HEAD'
 
@@ -302,18 +399,26 @@ export async function detectPullRequest({
     return null
   }
 
-  if (onBranch) {
-    logger.debug(`Detecting PR for branch: ${branch}`)
-    const pr = await findPrForProvider(provider, token, repo, branch, domain)
+  return await findReleasePullRequest({
+    provider,
+    token,
+    repo,
+    domain,
+    branch: onBranch
+      ? branch
+      : undefined,
+    sha,
+  })
+}
 
-    if (pr || !sha) {
-      return pr
-    }
-  }
-
-  logger.debug(`No open PR for the branch, looking for the PR of the commit ${sha}`)
-
-  return await findPrOfCommit(provider, token, repo, sha!, domain)
+/**
+ * Why a pull request cannot be read nor commented without token, with the
+ * ways to give one
+ */
+export function getMissingTokenReason(provider: 'github' | 'gitlab'): string {
+  return provider === 'github'
+    ? 'no GitHub token: set RELIZY_GITHUB_TOKEN, GITHUB_TOKEN or GH_TOKEN, or log in with gh auth login'
+    : 'no GitLab token: set RELIZY_GITLAB_TOKEN, GITLAB_TOKEN or GITLAB_API_TOKEN, or log in with glab auth login'
 }
 
 export const PR_COMMENT_MARKER = '<!-- relizy-pr-comment -->'
@@ -487,7 +592,7 @@ async function createGitLabComment({
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'PRIVATE-TOKEN': token,
+      ...gitlabAuthHeader(token),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ body }),
@@ -521,7 +626,7 @@ async function findExistingGitLabComment({
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'PRIVATE-TOKEN': token,
+      ...gitlabAuthHeader(token),
     },
   })
 
@@ -555,7 +660,7 @@ async function updateGitLabComment({
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
-      'PRIVATE-TOKEN': token,
+      ...gitlabAuthHeader(token),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ body }),
@@ -589,7 +694,7 @@ async function deleteGitLabComment({
   const response = await fetch(url, {
     method: 'DELETE',
     headers: {
-      'PRIVATE-TOKEN': token,
+      ...gitlabAuthHeader(token),
     },
   })
 
@@ -742,7 +847,22 @@ async function postGitHubPrComment({
  * result. The merge preview updates (or recreates) its own comment, apart
  * from the comments of the releases (canary, prerelease).
  */
-export async function postPrComment({
+export async function postPrComment(options: {
+  config: ResolvedRelizyConfig
+  pr: PullRequestInfo
+  body: string
+  /** The comment to update: `PR_COMMENT_MARKER` for a release, `MERGE_PREVIEW_MARKER` for a merge preview */
+  marker?: string
+}): Promise<boolean> {
+  return (await postPrCommentWithReason(options)).posted
+}
+
+/**
+ * `postPrComment`, with why nothing was posted: no token, a job token of
+ * GitLab, no repository, a provider without comments, a refused request
+ */
+// eslint-disable-next-line complexity
+export async function postPrCommentWithReason({
   config,
   pr,
   body,
@@ -751,9 +871,8 @@ export async function postPrComment({
   config: ResolvedRelizyConfig
   pr: PullRequestInfo
   body: string
-  /** The comment to update: `PR_COMMENT_MARKER` for a release, `MERGE_PREVIEW_MARKER` for a merge preview */
   marker?: string
-}): Promise<boolean> {
+}): Promise<{ posted: boolean, reason?: string }> {
   const repo = config.repo?.repo
   const domain = config.repo?.domain
   const isMergePreview = marker === MERGE_PREVIEW_MARKER
@@ -767,7 +886,7 @@ export async function postPrComment({
 
   if (pr.provider !== 'github' && pr.provider !== 'gitlab') {
     logger.warn(`PR commenting not supported for provider: ${pr.provider}`)
-    return false
+    return { posted: false, reason: `the comments are not supported on ${pr.provider}` }
   }
 
   const token = getProviderToken(config, pr.provider)
@@ -775,18 +894,25 @@ export async function postPrComment({
     logger.warn(`No ${pr.provider === 'github'
       ? 'GitHub'
       : 'GitLab'} token available for PR commenting`)
-    return false
+    return {
+      posted: false,
+      reason: getMissingTokenReason(pr.provider),
+    }
   }
 
   if (pr.provider === 'gitlab' && isGitlabJobToken(token)) {
     logger.warn(GITLAB_JOB_TOKEN_MR_COMMENT_WARNING)
-    return false
+    return { posted: false, reason: 'the job token of GitLab (CI_JOB_TOKEN) cannot comment a merge request: set RELIZY_GITLAB_TOKEN' }
   }
 
   if (!repo) {
     logger.warn('No repository configuration found for PR commenting')
-    return false
+    return { posted: false, reason: 'no repository found (repo of the config)' }
   }
+
+  const refused = { posted: false, reason: `the API of ${pr.provider === 'github'
+    ? 'GitHub'
+    : 'GitLab'} refused the comment (see the warnings)` }
 
   try {
     if (pr.provider === 'github') {
@@ -799,6 +925,8 @@ export async function postPrComment({
         domain,
         markers,
       })
+        ? { posted: true }
+        : refused
     }
 
     return await postGitLabMrComment({
@@ -810,9 +938,13 @@ export async function postPrComment({
       domain,
       markers,
     })
+      ? { posted: true }
+      : refused
   }
   catch (error) {
     logger.warn(`Failed to post PR comment: ${error}`)
-    return false
+    return { posted: false, reason: `the comment failed: ${error instanceof Error
+      ? error.message
+      : String(error)}` }
   }
 }

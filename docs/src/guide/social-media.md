@@ -18,6 +18,7 @@ tags: [guide, social, twitter, x, slack, teams, webhook, announcements, notifica
 - A release is announced in **one** post per platform, even when it ships several versions (see [Releases of Several Versions](#releases-of-several-versions)). Teams posts one card per version by default (see [Microsoft Teams](#microsoft-teams)).
 - With `onlyStable` (the default of Slack and Teams), the prereleases are not announced.
 - Before the bump, the safety check of `relizy release` checks the credentials, the dependencies and the AI provider of the enabled platforms: a missing one fails the release before anything is written. `--no-safety-check` skips it.
+- With [staged publishing](./staged-publishing.md), the posts wait for the approval: while versions still await it, `relizy release` skips the step and tells to run `relizy social` once they are approved. The posts are made as usual once the `approve` step approved them all.
 - A failed post does not stop the release: the error is in the logs and in the summary, the `social` step is in the [`failed_steps` output](./../config/release.md#report), and the next steps run.
 
 The options are listed in [Social Configuration](./../config/social.md), the variables of the templates in [Template Variables](./../config/social.md#template-variables).

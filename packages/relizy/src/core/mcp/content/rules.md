@@ -2,7 +2,7 @@ This project releases with **relizy**: versions, changelogs, git tags, npm publi
 
 ### Look it up before you guess
 
-- **MCP server `relizy`** (when available): `preview_release` (what the next release bumps and why), `preview_changelog`, `lint_commit`, `get_project` (resolved config, version mode, groups, packages), `get_config_option`, `search_docs`, `get_doc`, `check_migration` (what to change to upgrade from relizy 1).
+- **MCP server `relizy`** (when available): `preview_release` (what the next release bumps and why), `preview_changelog`, `lint_commit`, `get_project` (resolved config, version mode, groups, packages), `get_config_option`, `search_docs`, `get_doc`, `check_migration` (what to change to upgrade from relizy 1), `list_staged_versions` (the versions staged on npm, awaiting approval).
 - **Version-matched docs** in `node_modules/relizy/agent-docs/` (start with `README.md`).
 - **`@relizy/core` as a library**: its API (every export with its signature, options and example) is in the `core/*` docs: `search_docs("<function or need>")`, then `get_doc({ id: "core/<domain>", sections: ["<name>"] })`, instead of reading its code.
 
@@ -18,7 +18,8 @@ Never invent a config option nor a CLI flag: check it with `get_config_option` o
 ### Releasing
 
 - Preview, never guess: `preview_release` and `preview_changelog`, or `relizy release --dry-run`.
-- Never run `relizy release`, `bump`, `publish`, `changelog`, `provider-release`, `social`, `sync`, `pr-comment` or `merge-preview` without the explicit approval of the user: they write versions and changelogs, commit, tag, push, publish or comment the pull requests. Most projects release from their CI.
+- Never run `relizy release`, `bump`, `publish`, `changelog`, `provider-release`, `social`, `sync`, `pr-comment`, `merge-preview`, `stage approve`, `stage reject` or `trust` without the explicit approval of the user: they write versions and changelogs, commit, tag, push, publish, comment the pull requests, approve or reject staged versions with the 2FA of the user (a rejection is final), or write the trusted publishers of npm. Most projects release from their CI. `relizy stage list` is read-only.
+- With `publish.staged`, a released version is not installable until a maintainer approves it: check `list_staged_versions` (or `relizy stage list`) before saying it is out.
 - Never edit the versions of the `package.json` files, the `CHANGELOG.md` files nor the release tags by hand: relizy computes them from the commits and the tags.
 
 ### Configuration

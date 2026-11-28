@@ -1,8 +1,8 @@
-import type { MergePreviewChecks, MergePreviewContext, MergePreviewPlan, MergePreviewResult, MergePreviewSquash, ReleaseMergePreview, ReleaseReport, ReleaseUi, ResolvedRelizyConfig } from '../core'
+import type { MergePreviewChecks, MergePreviewContext, MergePreviewPlan, MergePreviewPullRequest, MergePreviewResult, MergePreviewSquash, ReleaseMergePreview, ReleaseReport, ReleaseUi, ResolvedRelizyConfig } from '../core'
 import type { MergePreviewConfig, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { fetchGitTags, getCurrentGitBranch, getPublishTag, plural, prepareCiRepository, tryGitSync, withGitCache } from '@relizy/core'
-import { checkMergePreview, createCommandUi, detectPullRequest, formatMergePreviewMarkdown, getMergePreviewPullRequest, getMergePreviewStatusDescription, getMergePreviewTerminalOutput, markErrorReported, MERGE_PREVIEW_MARKER, planMergePreview, postPrComment, prepareMergePreviewContext, resolveMergePreviewSquash, setMergePreviewStatus, writeReleaseReport } from '../core'
+import { checkMergePreview, createCommandUi, detectPullRequest, formatMergePreviewMarkdown, getMergePreviewPullRequest, getMergePreviewStatusDescription, getMergePreviewTerminalOutput, getRemotePullRequestName, markErrorReported, MERGE_PREVIEW_MARKER, planMergePreview, postPrCommentWithReason, prepareMergePreviewContext, readRemotePullRequest, resolveMergePreviewSquash, setMergePreviewStatus, writeReleaseReport } from '../core'
 import { runWithEvents } from '../core/events'
 import { generateBumpChangelogs } from '../core/release-preview'
 import { planBumps } from './bump'
@@ -83,6 +83,46 @@ interface ComputedPreview {
   context?: MergePreviewContext
   plan?: MergePreviewPlan
   checks: MergePreviewChecks
+  /** Why the pull request of `prNumber` is not commented outside its pipeline */
+  notPosted?: string
+}
+
+/** `#7` on GitHub, `!7` on GitLab */
+function getPullRequestRef(pullRequest: { provider: string, number?: number }): string {
+  return `${pullRequest.provider === 'gitlab'
+    ? '!'
+    : '#'}${pullRequest.number}`
+}
+
+/**
+ * The pull request `prNumber` outside its pipeline (an app, a terminal): read
+ * from the API of the forge, previewed only when HEAD is its last commit, so
+ * the comment never shows the release of another state of the branch
+ */
+async function readPullRequestOutsideCi({ config, prNumber, ui }: { config: ResolvedRelizyConfig, prNumber: number, ui: ReleaseUi }): Promise<{ pullRequest?: MergePreviewPullRequest, reason?: string }> {
+  const name = getRemotePullRequestName(config, prNumber)
+  const remote = await ui.step({
+    name: 'merge-preview',
+    running: `Reading the ${name}`,
+    done: result => result.pullRequest
+      ? `Read the ${result.pullRequest.kind} ${getPullRequestRef(result.pullRequest)}`
+      : `The ${name} not read`,
+    failed: result => !result.pullRequest,
+    run: () => readRemotePullRequest(config, prNumber),
+  })
+  if (!remote.pullRequest) {
+    return { reason: remote.reason }
+  }
+
+  const { pullRequest } = remote
+  const head = tryGitSync(['rev-parse', 'HEAD'], { cwd: config.cwd })
+  if (pullRequest.headSha && head !== pullRequest.headSha) {
+    return {
+      reason: `HEAD (${head?.slice(0, 7) ?? 'none'}) is not the last commit of the ${pullRequest.kind} ${getPullRequestRef(pullRequest)} (${pullRequest.headSha.slice(0, 7)}): check out its branch and pull, then run again`,
+    }
+  }
+
+  return { pullRequest }
 }
 
 /**
@@ -111,7 +151,13 @@ async function computePreview({ config, options, settings, ui }: {
       throw new Error('The repository has no commit yet: commit first, nothing can be released before')
     }
 
-    const pullRequest = getMergePreviewPullRequest()
+    let pullRequest = getMergePreviewPullRequest()
+    if (!pullRequest && options.prNumber) {
+      const outsideCi = await readPullRequestOutsideCi({ config, prNumber: options.prNumber, ui })
+      pullRequest = outsideCi.pullRequest
+      computed.notPosted = outsideCi.reason
+    }
+
     if (pullRequest) {
       computed.context = await ui.step({
         name: 'merge-preview',
@@ -119,8 +165,11 @@ async function computePreview({ config, options, settings, ui }: {
         done: result => result.merged
           ? `Computed on ${pullRequest.targetBranch} + this ${pullRequest.kind}`
           : `Computed without the last commits of ${pullRequest.targetBranch}`,
-        run: () => prepareMergePreviewContext({ pullRequest, cwd: config.cwd }),
+        run: () => prepareMergePreviewContext({ pullRequest: pullRequest!, cwd: config.cwd }),
       })
+    }
+    else if (computed.notPosted) {
+      logger.warn(`Nothing posted on the ${getRemotePullRequestName(config, options.prNumber!)}: ${computed.notPosted}. Previewing the next release of the current branch`)
     }
     else {
       logger.info('Not a pull request pipeline: previewing the next release of the current branch, without comment nor commit status')
@@ -199,15 +248,15 @@ async function computePreview({ config, options, settings, ui }: {
   return computed
 }
 
-/** The comment of the pull request, posted or updated in place */
-async function commentPullRequest({ config, context, markdown, prNumber }: { config: ResolvedRelizyConfig, context: MergePreviewContext, markdown: string, prNumber?: number }): Promise<boolean> {
+/** The comment of the pull request, posted or updated in place, with why it was not */
+async function commentPullRequest({ config, context, markdown, prNumber }: { config: ResolvedRelizyConfig, context: MergePreviewContext, markdown: string, prNumber?: number }): Promise<{ posted: boolean, reason?: string }> {
   const pr = await detectPullRequest({ config, prNumber: prNumber ?? context.pullRequest.number })
   if (!pr) {
     logger.warn(`No ${context.pullRequest.kind} found to comment`)
-    return false
+    return { posted: false, reason: `no ${context.pullRequest.kind} found to comment` }
   }
 
-  return postPrComment({
+  return postPrCommentWithReason({
     config,
     pr,
     body: markdown,
@@ -237,17 +286,19 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
   ui: ReleaseUi
 }): Promise<ReleaseMergePreview['posted']> {
   const failed = result.checks.problems.length > 0
-  const posted = { comment: false, status: false }
+  const posted: ReleaseMergePreview['posted'] = { comment: false, status: false }
 
   if (settings.comment) {
     const label = getPullRequestLabel(context)
-    posted.comment = await ui.step({
+    const comment = await ui.step({
       name: 'merge-preview',
       running: `Commenting the ${context.pullRequest.kind}`,
-      done: posted => posted
+      done: comment => comment.posted
         ? `${label} commented`
-        : `${label} not commented`,
-      failed: posted => !posted,
+        : `${label} not commented${comment.reason
+          ? `: ${comment.reason}`
+          : ''}`,
+      failed: comment => !comment.posted,
       run: () => commentPullRequest({
         config,
         context,
@@ -255,6 +306,10 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
         prNumber,
       }),
     })
+    posted.comment = comment.posted
+    if (comment.reason) {
+      posted.reason = comment.reason
+    }
   }
 
   if (shouldSetStatus(settings, context)) {
@@ -395,7 +450,7 @@ async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseRep
 
 async function previewMerge({ config, options, ui }: { config: ResolvedRelizyConfig, options: MergePreviewOptions, ui: ReleaseUi }): Promise<ReleaseReport> {
   const settings = getSettings(config, options)
-  const { context, plan, checks } = await computePreview({ config, options, settings, ui })
+  const { context, plan, checks, notPosted } = await computePreview({ config, options, settings, ui })
 
   const outcome = plan?.outcome
   const version = outcome?.bumpResult.bumped
@@ -421,7 +476,13 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
         prNumber: options.prNumber,
         ui,
       })
-    : { comment: false, status: false }
+    : {
+        comment: false,
+        status: false,
+        ...(notPosted
+          ? { reason: notPosted }
+          : {}),
+      }
 
   const report = getReport(result, config, posted)
   writeReleaseReport({ config, report })

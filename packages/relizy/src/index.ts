@@ -10,8 +10,10 @@ export {
   publish,
   release,
   social,
+  stage,
   sync,
   SyncError,
+  trust,
 } from './commands'
 export type { CommitlintOptions, CommitlintRunResult } from './commands/commitlint'
 export type { MergePreviewOptions } from './commands/merge-preview'
