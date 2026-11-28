@@ -53,6 +53,49 @@ function isPostedInRelease(config: ResolvedRelizyConfig, platform: AISocialPlatf
   return !onlyStable || !isPrereleaseOnlyRelease(config, versions)
 }
 
+const SOCIAL_PLATFORMS = ['twitter', 'slack', 'teams'] as const
+
+/**
+ * Why the social step of `relizy release` posts nothing although
+ * `release.social` is on, undefined when it posts: no platform enabled,
+ * versions awaiting approval, or (with the versions of the release) every
+ * enabled platform leaving out the prereleases with its `onlyStable`. The
+ * release and `previewRelease()` decide with it; the reason is the text the
+ * release logs and reports.
+ */
+export function getSocialStepSkip(config: ResolvedRelizyConfig, { awaitingApproval = false, versions }: {
+  /** Versions of the run are staged and not approved yet */
+  awaitingApproval?: boolean
+  /** The versions of the release, to apply the `onlyStable` of each platform */
+  versions?: string[]
+} = {}): { reason: string, disabledBy?: string } | undefined {
+  if (!isAnySocialPlatformEnabled(config)) {
+    return { reason: 'no platform enabled', disabledBy: 'social' }
+  }
+
+  if (awaitingApproval) {
+    // `publish.approve: false` names the option; in CI, npm never approves whatever the option
+    return {
+      reason: 'versions awaiting approval: run "relizy social" once approved',
+      ...(config.publish.approve === false && { disabledBy: 'publish.approve' }),
+    }
+  }
+
+  if (versions) {
+    const enabled = SOCIAL_PLATFORMS.filter(platform => config.social?.[platform]?.enabled)
+
+    if (enabled.every(platform => !isPostedInRelease(config, platform, versions))) {
+      // As the report of the release: `slack: prerelease, teams: prerelease`
+      return {
+        reason: enabled.map(platform => `${platform}: prerelease`).join(', '),
+        disabledBy: enabled.map(platform => `social.${platform}.onlyStable`).join(', '),
+      }
+    }
+  }
+
+  return undefined
+}
+
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function socialSafetyCheck({ config, versions }: {
   config: ResolvedRelizyConfig

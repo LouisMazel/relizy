@@ -23,7 +23,7 @@ import { tryPostPrComment } from './pr-comment'
 import { describeProviderReleaseResult, providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish, publishSafetyCheck } from './publish'
 
-import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
+import { describeSocialResult, getSocialStepSkip, social, socialSafetyCheck } from './social'
 
 /** The options of `release` that canary mode turns off */
 export const CANARY_OFF_OPTIONS: ReadonlySet<string> = new Set([
@@ -1042,17 +1042,13 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     currentStep = 'Social media'
     let socialResults: SocialResult | undefined
 
-    const awaitingApproval = getStagedVersions().filter(version => !version.approved)
-    if (config.release.social && isAnySocialPlatformEnabled(config) && awaitingApproval.length > 0) {
-      // A post would announce versions nobody can install yet
-      ui.skip({
-        name: 'social',
-        title: 'Post release to social media',
-        label: 'Social posts',
-        reason: 'versions awaiting approval: run "relizy social" once approved',
-      })
-    }
-    else if (config.release.social && isAnySocialPlatformEnabled(config)) {
+    // A post would announce versions nobody can install yet
+    const socialSkip = config.release.social
+      ? getSocialStepSkip(config, {
+          awaitingApproval: getStagedVersions().some(version => !version.approved),
+        })
+      : undefined
+    if (config.release.social && !socialSkip) {
       socialResults = await ui.step({
         name: 'social',
         title: 'Post release to social media',
@@ -1076,8 +1072,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'social',
         title: 'Post release to social media',
         label: 'Social posts',
-        reason: config.release.social
-          ? 'no platform enabled'
+        reason: socialSkip
+          ? socialSkip.reason
           : getOffReason({
               config,
               options,
