@@ -9,7 +9,7 @@ import { getProviderApi } from './api'
 export const MERGE_PREVIEW_STATUS_CONTEXT = 'relizy/merge-preview'
 
 /** The page of the CI job, linked from the status */
-function getJobUrl(env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function getJobUrl(env: NodeJS.ProcessEnv = process.env): string | undefined {
   if (env.GITHUB_SERVER_URL && env.GITHUB_REPOSITORY && env.GITHUB_RUN_ID) {
     return `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
   }

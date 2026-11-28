@@ -13,6 +13,7 @@ import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, merg
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
 import { enableCliUi, moveCliUiToStderr } from './core/release-ui'
+import { getReportOverride } from './core/report-override'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
 // The other commands start with their own title line
@@ -146,12 +147,6 @@ function parseGroupNames(value: string): string[] {
 }
 
 /** The files of the report given on the command line, if any */
-function getReportOverride(options: { reportJson?: string, reportDotenv?: string, reportMarkdown?: string }) {
-  const report = { json: options.reportJson, dotenv: options.reportDotenv, markdown: options.reportMarkdown }
-  return Object.values(report).some(Boolean)
-    ? report
-    : undefined
-}
 
 function privatePackagesOption() {
   return new Option('--private-packages <mode>', 'What to do with the private packages, overrides monorepo.privatePackages (release: version them, never publish them)').choices(['ignore', 'release'])
@@ -833,6 +828,8 @@ program
   .option('--report-json <file>', 'Write the report of the release to this JSON file')
   .option('--report-dotenv <file>', 'Write the outputs of the release to this dotenv file (RELIZY_RELEASED=true...), for the artifacts:reports:dotenv of GitLab CI')
   .option('--report-markdown <file>', 'Write the summary of the release to this markdown file, e.g. for an artifact of GitLab CI')
+  .option('--report-status', 'Set the commit status relizy/release at each step, in GitHub Actions and GitLab CI (default: release.report.status)')
+  .option('--no-report-status', 'Do not set the commit status relizy/release')
   .addOption(slackFormatOption())
   .action(async (options) => {
     try {
@@ -913,7 +910,9 @@ program
             ? false
             : undefined,
         slackFormat: options.slackFormat,
-        report: getReportOverride(options),
+        report: getReportOverride(options, {
+          status: getCliSwitch('report-status'),
+        }),
       })
     }
     catch (error) {
