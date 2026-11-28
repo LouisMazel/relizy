@@ -79,6 +79,7 @@ jobs:
 | `release-type`                                                                                     | `auto`                                 | `auto` (no type flag: `bump.type` of the config or the profile, else the commits), `patch`, `minor`, `major`, `prerelease`, `prepatch`, `preminor`, `premajor` |
 | `profile`                                                                                          |                                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...): `profile: beta` is `--profile beta` (relizy 2.3.0 or later)                  |
 | `args`                                                                                             |                                        | More arguments for the command: `--tag beta --preid beta`, `--config standalone`, `--dry-run` for `relizy release`, `--title` for `relizy commitlint`          |
+| `report-status`                                                                                    | `true`                                 | Set the commit status `relizy/release` at each step of a release ([Release Progress](./release-progress.md)), `false` turns it off                             |
 | `github-token`                                                                                     | <code v-pre>${{ github.token }}</code> | GitHub releases, push and PR comment                                                                                                                           |
 | `npm-token`                                                                                        |                                        | npm publishing, not needed with trusted publishing                                                                                                             |
 | `slack-token`, `teams-webhook-url`                                                                 |                                        | [Slack posts, Teams cards](./social-media.md)                                                                                                                  |
@@ -135,6 +136,7 @@ The permissions of the job:
 - `contents: write`: push the release commit and the tags, create the GitHub release. Without it, the release stops before publishing, with the fix.
 - `pull-requests: write` and `issues: write`: the [PR comment](./pr-comment.md), on the pull request the release merged (on `push` or `pull_request: closed`). `relizy init` only adds them when the comment is on.
 - `id-token: write`: publish to npm without `NPM_TOKEN`, with [trusted publishing](./trusted-publishing.md) (set it up with [`relizy trust`](./../cli/trust.md)).
+- `statuses: write`: the commit status `relizy/release` of the `report-status` input, to follow the release while it runs ([Release Progress](./release-progress.md)). Without it, the release warns once and goes on. `relizy init` adds it.
 
 ## Protected Branches and Rulesets
 
@@ -304,6 +306,18 @@ jobs:
 ```
 
 With a `canary` [profile](./../config/profiles.md) (`release: { canary: true }`), the same step is `profile: canary`.
+
+### Resume a Failed Release
+
+"Re-run failed jobs" runs the same commit again: skip the versions a failed run already published, on a re-run only (see [Resume a Release](./resume-a-release.md)).
+
+```yaml
+- uses: relizy/action@v2
+  with:
+    args: ${{ github.run_attempt > 1 && '--skip-existing-versions' || '' }}
+```
+
+To keep the report of a failed release as a file, see [The Final Report](./release-progress.md#the-final-report).
 
 ### Release When a Pull Request Is Merged
 

@@ -52,9 +52,9 @@ Release a canary version of the current commit instead of a release, as `relizy 
 
 ## report
 
-- **Type:** `{ github?: boolean, json?: string, dotenv?: string, markdown?: string }`
-- **Default:** `{ github: true }`
-- **CLI:** `--report-json <file>`, `--report-dotenv <file>`, `--report-markdown <file>`
+- **Type:** `{ github?: boolean, json?: string, dotenv?: string, markdown?: string, status?: boolean }`
+- **Default:** `{ github: true, status: false }`
+- **CLI:** `--report-json <file>`, `--report-dotenv <file>`, `--report-markdown <file>`, `--report-status` / `--no-report-status`
 
 Report of the release, to run something only when a release happens (see [CI/CD](./../guide/ci-cd.md#run-something-only-when-a-release-happens)). Written after a release, when there is nothing to release and when the release fails (not for a refused or cancelled prompt), in dry-run too. The paths are relative to `cwd`.
 
@@ -64,6 +64,7 @@ Report of the release, to run something only when a release happens (see [CI/CD]
 | `json`     | Write the whole report (the value returned by `release()`) to this JSON file                                                                                                                                             |
 | `dotenv`   | Write the outputs to this file as `RELIZY_<OUTPUT>=value` (`RELIZY_RELEASED=true`), for the `artifacts:reports:dotenv` of GitLab CI. Without `install`: no value has a space, the file can be sourced (`. ./relizy.env`) |
 | `markdown` | Write the summary of the release to this markdown file, e.g. for an artifact of GitLab CI                                                                                                                                |
+| `status`   | In GitHub Actions and GitLab CI, set the commit status `relizy/release` on the released commit and update it at each step, to follow the release while it runs: see [Release Progress](./../guide/release-progress.md)   |
 
 | Output                   | Value                                                                                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -83,6 +84,8 @@ Report of the release, to run something only when a release happens (see [CI/CD]
 | `package_<name>_version` | The new version of a released package (`@acme/ui-kit` gives `package_acme_ui_kit_version`)                                                             |
 
 The `group_*` and `package_*` outputs are only set when the release happened (not in dry-run): a group or a package not released has none.
+
+The step that stopped a failed release is `failedStep` of the JSON report (`Publish`, `Commit`, `Push`...): see [Resume a Release](./../guide/resume-a-release.md).
 
 The JSON report has the same content, with the packages by version group: see [`ReleaseReport`](./../typedoc/interfaces/ReleaseReport.md).
 

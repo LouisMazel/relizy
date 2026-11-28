@@ -60,6 +60,8 @@ const guideSidebar = [
       { text: 'Release from CI', link: '/guide/ci-cd' },
       { text: 'GitHub Actions', link: '/guide/github-actions' },
       { text: 'GitLab CI', link: '/guide/gitlab-ci' },
+      { text: 'Release Progress', link: '/guide/release-progress' },
+      { text: 'Resume a Release', link: '/guide/resume-a-release' },
       { text: 'Merge Preview', link: '/guide/merge-preview' },
       { text: 'Branch Sync', link: '/guide/branch-sync' },
       { text: 'Trusted Publishing (OIDC)', link: '/guide/trusted-publishing' },
