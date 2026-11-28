@@ -1,5 +1,48 @@
 # Changelog
 
+## @relizy/core@2.6.0-beta.0 (2026-11-28)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.5.0...@relizy/core@2.6.0-beta.0)
+
+### 🚀 Features
+
+- **core:** Stage, approve and publish on npm with staging, trusted publishing and the web 2FA ([14b916f](https://github.com/LouisMazel/relizy/commit/14b916f))
+
+  The building blocks of npm staged publishing and trusted publishing: stage a version (`publishToRegistryWithResult({ staged })`, `packAndUpload()`), list, approve or reject it with one 2FA, set up the trusted publishers of a package, and read how a publish authenticates (`getPublishAuth()`). An account with a security key or a passkey validates on the web page of npm (`onWebAuth`).
+
+  ```ts
+  import { approveStagedVersions, listStagedVersions } from '@relizy/core'
+
+  const registry = 'https://registry.npmjs.org/'
+  const staged = await listStagedVersions({ cwd: '/repo', registry })
+
+  await approveStagedVersions({
+    cwd: '/repo',
+    registry,
+    versions: staged,
+    getOtp: () => undefined,
+    onWebAuth: ({ url }) => openInTheBrowser(url),
+  })
+  ```
+
+- **core:** Read the token of the GitLab CLI with `getGlabCliToken()` ([5a4a486](https://github.com/LouisMazel/relizy/commit/5a4a486))
+
+  `getGlabCliToken(hostname)` returns the token `glab auth login` stored for a GitLab host (`glab config get token --host <hostname>`, 5 second timeout), and undefined when `glab` is missing or not logged in. It is the GitLab counterpart of `getGhCliToken()`.
+
+### 🩹 Fixes
+
+- **core:** Detect bun from its text lockfile `bun.lock` ([4e8404e](https://github.com/LouisMazel/relizy/commit/4e8404e))
+
+  `findPackageManager()` and `detectPackageManager()` now recognise `bun.lock`, the text lockfile of bun 1.2 and later, as bun. It is checked after `bun.lockb`, with the same priority as before over the other lockfiles: a bun project without `packageManager` field is no longer detected as npm.
+
+- **core:** Authenticate the OAuth tokens of GitLab with `Authorization: Bearer` ([5831b8e](https://github.com/LouisMazel/relizy/commit/5831b8e))
+
+  `getGitlabAuthHeader()` sends an OAuth access token of GitLab (64 hexadecimal characters, the token of `glab auth login` in the browser) in `Authorization: Bearer`, the only header GitLab accepts it in: in `PRIVATE-TOKEN`, it was rejected with a 401. The access tokens (personal, project, group) keep `PRIVATE-TOKEN` and the job token `JOB-TOKEN`.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## @relizy/core@2.5.0 (2026-11-20)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0...@relizy/core@2.5.0)

@@ -1,5 +1,142 @@
 # Changelog
 
+## v2.5.0-beta.0 (2026-11-28)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.4.0...v2.5.0-beta.0)
+
+### 🚀 Features
+
+- **relizy:** Stage the versions on npm, approve them with one 2FA, and set up trusted publishing ([a80d3a6](https://github.com/LouisMazel/relizy/commit/a80d3a6))
+
+  `publish.staged` uploads the versions to the npm staging area: they become installable once a maintainer approves them with one 2FA, at the end of `relizy release` or with `relizy stage`. Trusted publishing is checked before publishing, and `relizy trust` sets it up for every package from the release workflows. See the [staged publishing guide](https://relizy.dev/guide/staged-publishing).
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    publish: {
+      staged: { tags: ['latest'] },
+    },
+  })
+  ```
+
+  ```bash
+  relizy stage list
+  relizy stage approve --all
+  relizy trust
+  ```
+
+- **relizy:** Publish, approve and set up trust with the web 2FA of npm ([e931716](https://github.com/LouisMazel/relizy/commit/e931716))
+
+  An npm account with a security key or a passkey validates on a page of npmjs.com: relizy opens it in the browser and goes on once validated, for the publish, the approval and `relizy trust`. A code is asked only when npm needs one. An application shows the page with `onWebAuth({ url, purpose })`.
+
+- Update npm for staged publishing in the GitHub action and the GitLab component, and give the staging outputs ([75522f7](https://github.com/LouisMazel/relizy/commit/75522f7))
+
+  The action and the component update npm when it is older than 11.15.0 (staged publishing, `npm trust`), whether or not the job can get an ID token, to npm 11, which runs on the Node of every project: a stage-only token without ID token needs it too.
+
+  The action declares the outputs of a release that staged versions: `staged`, `stage_ids`, `awaiting_approval` and `publish_auth`; the component gives them as `RELIZY_STAGED`... in its dotenv artifact. `--staged` and `--approve` go through the `args` input; the approval is skipped in CI. The `npm-token` input is not needed with trusted publishing (`relizy trust`).
+
+- **relizy:** Post the merge preview of a pull request from outside its pipeline ([bdc656e](https://github.com/LouisMazel/relizy/commit/bdc656e))
+
+  `relizy merge-preview --pr-number <number>` and `mergePreview({ prNumber })` now comment the pull/merge request from anywhere (an app, a terminal): outside a pull request pipeline, the pull request is read from the API of GitHub or GitLab (its target branch, its last commit, its title), and the comment relizy already posted on it is updated, never duplicated. The comment is only posted when HEAD is the last commit of the pull request.
+
+  The token is the one of the config (`RELIZY_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`; `RELIZY_GITLAB_TOKEN`, `GITLAB_TOKEN`, `GITLAB_API_TOKEN`), else, outside CI, the one of the logged-in GitHub CLI or, new, GitLab CLI (`glab`).
+
+  When the pull request is not commented, the report says why in `mergePreview.posted.reason` (no token, forge unknown, pull request not found or closed, HEAD not its last commit, refused by the API) and the command warns:
+
+  ```ts
+  const report = await mergePreview({ prNumber: 7 })
+  report.mergePreview?.posted // { comment: false, status: false, reason: 'the pull request #7 was not found in acme/app' }
+  ```
+
+  Inside a pull request pipeline, and without `prNumber` outside one, nothing changes.
+
+- **relizy:** Add `relizy commitlint` to an existing commit-msg hook with `relizy init` ([96356e0](https://github.com/LouisMazel/relizy/commit/96356e0))
+
+  When the project already has a commit-msg hook (husky, `core.hooksPath` or `.git/hooks`) that is a plain shell script, without another linter of the commit messages and without `exec` nor `exit` ending it before its last line, `relizy init` now adds `npx --no -- relizy commitlint --edit "$1"` at its end: asked in an interactive terminal (yes by default), done with `--yes`. Any other hook is kept with the warning giving the line to add, as before. `installCommitMsgHook()` gives the `added` status for it.
+
+- **relizy:** Offer the alpha, beta, rc and canary channels as profiles in `relizy init` ([2e7ac41](https://github.com/LouisMazel/relizy/commit/2e7ac41))
+
+  When the project publishes, `relizy init` offers to release on other channels, written as profiles of the config: `alpha`, `beta` and `rc` (prereleases under the dist-tag of the same name) and `canary` (a version of the current commit, without commit nor tag). None is chosen by default, then release with `relizy release --profile rc`.
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    profiles: {
+      rc: {
+        description: 'Release candidate under the rc dist-tag',
+        bump: { type: 'prerelease', preid: 'rc' },
+        publish: { tag: 'rc' },
+      },
+    },
+  })
+  ```
+
+### 🩹 Fixes
+
+- **relizy:** Show the error and the warnings at the end of a command in boxes, and name the command that failed ([eac46fb](https://github.com/LouisMazel/relizy/commit/eac46fb))
+
+  The end of a command shows what went wrong and how to go on, and its warnings, in boxes, and a failed command is named (`relizy stage approve failed`) instead of always saying `Release failed`.
+
+- **relizy:** Announce the social step in the release preview only when it posts ([b247a39](https://github.com/LouisMazel/relizy/commit/b247a39))
+
+  `previewRelease()` and the `preview_release` tool of the MCP server now decide the social step as `relizy release` does: with `release.social` on, the step is disabled when no platform is enabled, when the versions stay staged awaiting approval (`publish.approve: false`, or in CI), or when every enabled platform leaves out a release of prereleases (`onlyStable`). The step then gives the reason the release reports, in the new `reason` field of `PreviewStep`:
+
+  ```ts
+  const social = preview.steps.find(step => step.name === 'social')
+  // { name: 'social', enabled: false, disabledBy: 'social', reason: 'no platform enabled' }
+  ```
+
+  The release itself is unchanged.
+
+- **relizy:** Show `templates.emptyChangelogContent` in the changelog previews ([f1dc855](https://github.com/LouisMazel/relizy/commit/f1dc855))
+
+  The changelog of a package released without commit of its own (a dependent, a package of a unified release) now holds the `emptyChangelogContent` text ("No relevant changes for this release" by default) in `previewChangelog()`, `previewRelease({ changelog: true })`, the `preview_changelog` tool of the MCP server and the merge preview, as in the `CHANGELOG.md` the release writes. Before, the previews gave only its title and its compare link. The provider releases and the social posts are unchanged.
+
+- **relizy:** Comment the pull request merged by the release, not an open one of its branch ([96d4bed](https://github.com/LouisMazel/relizy/commit/96d4bed))
+
+  The comment of a release made at the merge of a pull request now goes on that pull request:
+
+  - On a push to the target branch, the pull request merged into this branch by the released commit comes first: an open pull request from the branch, such as the one syncing `main` into `develop`, no longer takes its comment.
+  - In a GitHub Actions run started by the merge (`pull_request` event, `closed` action, merged), the pull request of the event is commented.
+
+  The comment is still updated in place on a re-run, a release without pull request still skips its comment with a warning, and a release from a branch with an open pull request comments it as before.
+
+- **relizy:** Undo the install of relizy by `relizy init` when pnpm stops on build scripts awaiting approval ([9510d7e](https://github.com/LouisMazel/relizy/commit/9510d7e))
+
+  When pnpm refuses to finish the install of relizy because dependencies of the project have build scripts awaiting approval (`ERR_PNPM_IGNORED_BUILDS`), `relizy init` now restores the `package.json` and the `pnpm-lock.yaml` pnpm had already changed, and gives the commands to run: `pnpm approve-builds`, then the install of relizy. relizy itself has no build script. The other failures of the install are reported as before.
+
+### 📖 Documentation
+
+- Document staged publishing, the approval, relizy stage and relizy trust ([8a9636f](https://github.com/LouisMazel/relizy/commit/8a9636f))
+
+  New guides on staged publishing and on moving off npm tokens before January 2027, the trusted publishing guide rewritten around relizy trust and the auth modes, the publish.staged and publish.approve options, the new flags, the stage and trust commands and APIs, the outputs, events and app flows of the staged versions.
+
+### 📦 Build
+
+- **deps:** Update 3 dependencies (patch and minor) ([c71b098](https://github.com/LouisMazel/relizy/commit/c71b098))
+
+  - @clack/prompts ^1.8.1 -> ^1.9.0
+  - commander ^15.0.0 -> ^15.1.0
+  - vue ^3.5.44 -> ^3.5.46
+
+### 🧪 Tests
+
+- **relizy:** Pin the exact sibling versions of two successive canaries ([0713b25](https://github.com/LouisMazel/relizy/commit/0713b25))
+
+  Two canaries of a dependent and of its sibling, one after the other: the dependent of each canary only accepts the canary of its sibling published by the same run, and the stable and prerelease releases keep their `workspace:^` range.
+
+- Set fixed coverage thresholds instead of raising them on each local run ([0e38a76](https://github.com/LouisMazel/relizy/commit/0e38a76))
+
+  The thresholds were raised to the coverage of the last local run (autoUpdate), so any change covering a bit less failed the CI. They are now fixed: 95% of the statements, functions and lines, 90% of the branches.
+
+- **relizy:** Put the items of an expected output on their own lines, as the lint asks ([69ccb1c](https://github.com/LouisMazel/relizy/commit/69ccb1c))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.4.0 (2026-11-20)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0...v2.4.0)
