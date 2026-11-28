@@ -1,4 +1,4 @@
-import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType, StagedEntry, StagedPublishing } from '@relizy/core'
+import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType, StagedEntry, StagedPublishing, TrustResult } from '@relizy/core'
 import type { CallSettings, LanguageModel } from 'ai'
 import type { ReleaseOverview, ReleaseReport, RelizyConfigOverrides, ResolvedRelizyConfig, RootPackage } from './core'
 import type { ApproveStepPackage, RelizyEventListener } from './core/events'
@@ -231,6 +231,58 @@ export interface StageResponse {
   staged: StagedEntry[]
   /** One result per version approved or rejected */
   results: ApproveStepPackage[]
+}
+
+/** The options of `trust()`: the npm trusted publishers of the packages of the project */
+export interface TrustOptions {
+  /** Only these packages, by name; every public package of the project otherwise */
+  packages?: string[]
+  /** Every public package of the project (the default) */
+  all?: boolean
+  /** Revoke and recreate the configurations of the workflow that differ, after a confirmation (`replace-trust`) */
+  replace?: boolean
+  /** The release workflow file, instead of the ones found (`.github/workflows/release.yml`) */
+  file?: string
+  /** GitHub repository, `owner/repo`, instead of the git remote */
+  repo?: string
+  /** GitLab project, `group/project`, instead of the git remote */
+  project?: string
+  /** The environment of the job, instead of the one read in the workflow */
+  env?: string
+  /** A CircleCI pipeline written by hand: its identifiers (not read from the files) */
+  circleci?: { orgId: string, projectId: string, pipelineDefinitionId: string, vcsOrigin: string, contextIds?: string[] }
+  /** The 2FA code, else asked through `onOtp` or the terminal */
+  otp?: string
+  /** Answer yes to the confirmations (replace, write the config) */
+  yes?: boolean
+  /** Show what would be set up: npm is never called */
+  dryRun?: boolean
+  /** Gives the 2FA code (`purpose: 'trust'`), once for the packages */
+  onOtp?: (request: OtpRequest) => string | Promise<string>
+  /** Confirms the replacements (`replace-trust`) and the write of `publish.staged` (`write-config`) */
+  onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
+  /** Receives the progress of the run, as typed events */
+  onProgress?: RelizyEventListener
+  /** Name of the config file to use (`relizy.<name>.config.ts`) */
+  configName?: string
+  /** Config already resolved by `loadRelizyConfig()` */
+  config?: ResolvedRelizyConfig
+  /** Profile to apply */
+  profile?: string
+  /** Log level */
+  logLevel?: RelizyLogLevel
+}
+
+/** What `trust()` did */
+export interface TrustResponse {
+  /** One result per package: `created`, `exists`, `differs`, `replaced`, `missing` or `failed` */
+  results: TrustResult[]
+  /** The `publish.staged` the configurations ask for, when it differs from the config */
+  proposedStaged?: StagedPublishing
+  /** The proposed value was written in the config file */
+  configWritten: boolean
+  /** The packages set up now with no release pending: their configuration expires unused in 2 days */
+  expiring: string[]
 }
 
 export interface PostedRelease {

@@ -1,4 +1,4 @@
-import type { PublishAuthMode, StagedEntry } from '@relizy/core'
+import type { PublishAuthMode, StagedEntry, TrustResult } from '@relizy/core'
 import type { AppPrompt, ConfirmPlan, GitProvider, OtpRequest, SyncResult } from '../types'
 import type { ReleaseReport } from './release-report'
 import type { CommandStepId } from './steps'
@@ -189,6 +189,11 @@ export interface StageListStepData {
   versions: StagedEntry[]
 }
 
+/** What `relizy trust` set up, one result per package */
+export interface TrustStepData {
+  packages: TrustResult[]
+}
+
 /** The data of each step, by name of the step */
 export interface StepDataMap {
   'checks': ChecksStepData
@@ -204,6 +209,7 @@ export interface StepDataMap {
   'approve': ApproveStepData
   'reject': ApproveStepData
   'list': StageListStepData
+  'trust': TrustStepData
 }
 
 /** The data of a step, whatever the step */

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { AGENT_TARGETS, logger, printBanner } from '@maz-ui/node'
 import { getCIName, isInCI } from '@relizy/core'
 import { Command, InvalidArgumentError, Option } from 'commander'
-import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social, stage, sync } from './commands'
+import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social, stage, sync, trust } from './commands'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
 import { enableCliUi } from './core/release-ui'
@@ -511,6 +511,57 @@ stageCommand
   .option('--otp <code>', 'The 2FA code of npm')
   .option('--json', 'Print the results as JSON')
   .action((packages: string[], options) => runStageCommand('reject', packages, options))
+
+program
+  .command('trust [packages...]')
+  .description('Set up the npm trusted publishers of the packages from the release workflow files, with your npm login and one 2FA')
+  .option('--all', 'Every public package of the project (the default)')
+  .option('--replace', 'Revoke and recreate the configurations of the workflow that differ, after a confirmation')
+  .option('--file <file>', 'The release workflow file, instead of the ones found')
+  .option('--repo <owner/repo>', 'GitHub repository, instead of the git remote')
+  .option('--project <group/project>', 'GitLab project, instead of the git remote')
+  .option('--env <name>', 'Environment of the job, instead of the one read in the workflow')
+  .option('--otp <code>', 'The 2FA code of npm')
+  .option('--yes', 'Answer yes to the confirmations (replace, write publish.staged)')
+  .option('--circleci-org-id <id>', 'CircleCI organization id (Organization Settings > Overview)')
+  .option('--circleci-project-id <id>', 'CircleCI project id (Project Settings > Overview)')
+  .option('--circleci-pipeline-definition-id <id>', 'CircleCI pipeline definition id (Project Settings > Project Setup)')
+  .option('--circleci-vcs-origin <origin>', 'CircleCI repository, e.g. github.com/owner/repo')
+  .option('--circleci-context-id <id...>', 'CircleCI context ids (Organization Settings > Contexts)')
+  .action(async (packages: string[], options) => {
+    try {
+      const circleci = options.circleciOrgId
+        ? {
+            orgId: options.circleciOrgId,
+            projectId: options.circleciProjectId,
+            pipelineDefinitionId: options.circleciPipelineDefinitionId,
+            vcsOrigin: options.circleciVcsOrigin,
+            ...(options.circleciContextId
+              ? { contextIds: options.circleciContextId }
+              : {}),
+          }
+        : undefined
+      await trust({
+        packages,
+        all: options.all,
+        replace: options.replace,
+        file: options.file,
+        repo: options.repo,
+        project: options.project,
+        env: options.env,
+        otp: options.otp,
+        yes: options.yes,
+        circleci,
+        dryRun: program.opts().dryRun,
+        logLevel: program.opts().logLevel,
+        configName: program.opts().config,
+        profile: program.opts().profile,
+      })
+    }
+    catch (error) {
+      exitWithError('Failed to set up trusted publishing -', error)
+    }
+  })
 
 const mcp = program
   .command('mcp')
