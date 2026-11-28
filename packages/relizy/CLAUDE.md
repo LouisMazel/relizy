@@ -1,0 +1,11 @@
+# Terminal output of relizy (clack)
+
+The output of the commands is one timeline: an intro, one line per step (spinner while it runs, then what it did and its duration), the end (`complete()` or `finish()`). Everything goes through `src/core/release-ui.ts`, which renders it for an interactive terminal (clack), a CI (plain lines, collapsible groups), the programmatic API (logger) and `RELIZY_REPORTER=json` (events on stdout).
+
+- Work that takes time is a `ui.step({ running, done, details, data, run })`, a step not run is `ui.skip()`, the end is `ui.complete({ message, notes, warnings, details, links })`: never a spinner, `intro()` or `outro()` of your own.
+- Never write to the terminal while a step runs: no `console`, no `process.stdout.write`, no clack `log.*` nor prompt. A question asked during a step goes through `promptInReleaseUi(() => askConfirm(...))` (the spinner pauses then goes on), a message the person must act on now (a link to open, a code to type) through `showNowInReleaseUi({ title, lines })`, a clack `note()` box.
+- Prompts use the helpers of `src/core/prompts.ts` (`askConfirm`, `askText`, `askSelect`, `askMultiselect`: a cancel throws `RelizyCancelError`), and only when someone can answer: `isInteractiveTerminal()` or `assertInteractivePrompt()`, else the `--yes`, `--otp`... flag or the handler of an application (`onPrompt`, `onOtp`, `onWebAuth`).
+- `logger.info` and `logger.debug` inside a step are captured: shown only with `--log-level verbose`, and always in the log file. Only what the person must act on is shown by default: a `logger.warn`, or `warnings` of `complete()`.
+- Several lines that belong together (a plan, a list of versions, a link with its instructions, an error with how to go on) are a `note()` box with a title, as the bump plan, never `log.info` / `log.error` lines: lines short enough for a terminal of 80 columns, no hand-drawn frame nor `│` in the text.
+- Plain language, what happened rather than how: `Approved 2 of 2 staged versions`, not the npm command and its output. Technical details belong to verbose or the log file.
+- The output must stay readable in a CI log and in the JSON events: a new kind of output gets its rendering in each renderer of `release-ui.ts`, and its test.
