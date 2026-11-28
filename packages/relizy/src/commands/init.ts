@@ -7,7 +7,7 @@ import process from 'node:process'
 import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, spinner, text } from '@clack/prompts'
 import { detectAgentTargets, execPromise, logger } from '@maz-ui/node'
 import { isInCI, tryGitSync } from '@relizy/core'
-import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getNpmRegistry, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
+import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getNpmRegistry, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isPublicNpmRegistry, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
 import { askAgentTargets, setupRelizyAgents } from '../core/agents'
 import { readOwnVersion } from '../core/own-version'
 
@@ -292,6 +292,20 @@ async function askPublish(detection: ProjectDetection, answers: InitAnswers): Pr
       placeholder: `e.g. ${getRunCommand(detection.packageManager, 'build')}`,
       initialValue: answers.buildCmd,
     }),
+    // Only npmjs stages
+    ...(isPublicNpmRegistry(detected.registry ?? getNpmRegistry(detection.cwd))
+      ? {
+          staged: await answer(select({
+            message: 'Stage versions for approval before they are installable?',
+            initialValue: answers.staged ?? 'none',
+            options: [
+              { value: 'none' as const, label: 'No, publish directly', hint: 'default' },
+              { value: 'stable' as const, label: 'Stable releases only', hint: 'prereleases and canaries published directly' },
+              { value: 'all' as const, label: 'Every version', hint: 'canaries published directly' },
+            ],
+          })),
+        }
+      : {}),
   }
 }
 
@@ -903,9 +917,18 @@ async function askWorkflow({ detection, answers, commitMessage, interactive, rel
   }
 }
 
+/**
+ * The npm token is only required for a restricted package or another
+ * registry: on public npmjs, trusted publishing (`relizy trust`) publishes
+ * from the CI, and a local release uses `npm login`
+ */
+export function npmTokenRequired(answers: Pick<InitAnswers, 'goal' | 'access' | 'registry'>): boolean {
+  return answers.goal === 'publish' && (answers.access === 'restricted' || Boolean(answers.registry && !isPublicNpmRegistry(answers.registry)))
+}
+
 function getRequiredTokens(detection: ProjectDetection, answers: InitAnswers): string[] {
   return [
-    ...(answers.goal === 'publish'
+    ...(npmTokenRequired(answers)
       ? ['NPM_TOKEN']
       : []),
     ...(detection.provider === 'github'
@@ -997,8 +1020,11 @@ function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workfl
     ...(ciTokens.length > 0
       ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${ciTokens.map(token => c.cyan(token)).join(', ')}`]
       : []),
-    ...(answers.goal === 'publish'
-      ? [`Publish without token ${c.cyan('https://relizy.dev/guide/trusted-publishing')} ${c.dim('(trusted publishing, after a first publish)')}`]
+    ...(answers.goal === 'publish' && !npmTokenRequired(answers)
+      ? [
+          `Trusted publishing    ${c.cyan('npx relizy trust')} ${c.dim('(once each package is on npm)')}`,
+          `                      ${c.dim('or the NPM_TOKEN secret: only without trusted publishing, or for the first publish of a new package')}`,
+        ]
       : []),
     `All the options       ${c.cyan('https://relizy.dev/config/overview')}`,
   ]

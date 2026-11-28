@@ -8,7 +8,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { setInteractiveTerminal } from '../../../tests/mocks'
 import { getDefaultConfig } from '../../core'
 import { readOwnVersion } from '../../core/own-version'
-import { init } from '../init'
+import { init, npmTokenRequired } from '../init'
 
 const CANCEL = Symbol('cancel')
 
@@ -592,8 +592,9 @@ describe('Given init command', () => {
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yml'), 'Changes')
       const [steps] = notes().find(([, title]) => title === 'Next steps')!
       // A local release needs every token, the CI gives GITHUB_TOKEN to the jobs
-      expect(steps).toMatch(/Set in \.env +NPM_TOKEN \(or npm login\), GITHUB_TOKEN \(or gh auth login\)\n +add \.env to \.gitignore\nPreview the release/)
-      expect(steps).toMatch(/Add the secrets +NPM_TOKEN\n/)
+      expect(steps).toMatch(/Set in \.env +GITHUB_TOKEN \(or gh auth login\)\n +add \.env to \.gitignore\nPreview the release/)
+      expect(steps).not.toMatch(/Add the secrets/)
+      expect(steps).toMatch(/Trusted publishing +npx relizy trust/)
     })
 
     it('Then keeps an existing workflow without asking, and still adds the merge preview', async () => {
@@ -711,9 +712,9 @@ describe('Given init command', () => {
       expect(job).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n    inputs:\n      image: node:24\n')
       expect(job).not.toContain('RELEASE_TYPE')
       const [steps] = notes().find(([, title]) => title === 'Next steps')!
-      expect(steps).toMatch(/Set in \.env +NPM_TOKEN \(or npm login\), GITLAB_TOKEN\nPreview the release/)
+      expect(steps).toMatch(/Set in \.env +GITLAB_TOKEN\nPreview the release/)
       expect(steps).not.toContain('add .env to .gitignore')
-      expect(steps).toMatch(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/)
+      expect(steps).toMatch(/Add the CI\/CD variables GITLAB_TOKEN\n/)
     })
   })
 
@@ -955,5 +956,14 @@ describe('Given init command', () => {
         expect(read('.git/hooks/commit-msg')).toBe('#!/bin/sh\nnpx commitlint --edit "$1"\n')
       })
     })
+  })
+})
+
+describe('Given the npm token of a project that publishes', () => {
+  it('Then requires it only for a restricted package or another registry: trusted publishing needs none on public npmjs', () => {
+    expect(npmTokenRequired({ goal: 'publish', access: 'public', registry: 'https://registry.npmjs.org/' })).toBe(false)
+    expect(npmTokenRequired({ goal: 'publish', access: 'restricted', registry: 'https://registry.npmjs.org/' })).toBe(true)
+    expect(npmTokenRequired({ goal: 'publish', access: 'public', registry: 'https://npm.pkg.github.com/' })).toBe(true)
+    expect(npmTokenRequired({ goal: 'version', access: 'restricted' })).toBe(false)
   })
 })
