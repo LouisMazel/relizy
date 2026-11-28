@@ -92,7 +92,8 @@ export function getGitlabReleasePayload(release: GitlabRelease): Required<Pick<G
 /**
  * Creates a release with the GitLab API (`POST` on the releases endpoint of
  * the project). The token authenticates with the `JOB-TOKEN` header when
- * it is the job token of a GitLab CI job, `PRIVATE-TOKEN` otherwise.
+ * it is the job token of a GitLab CI job, `Authorization: Bearer` for an
+ * OAuth access token, `PRIVATE-TOKEN` otherwise.
  * Makes a network call.
  *
  * @param options - The token, the project and the release
