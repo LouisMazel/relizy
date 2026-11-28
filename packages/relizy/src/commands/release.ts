@@ -7,6 +7,7 @@ import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, filterOutPrivatePackages, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
 import { createCommandUi, createCommitAndTags, describeBumpResult, describeSyncResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, getSyncSource, getSyncTargets, hasSyncFailures, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, syncBranches, syncSafetyCheck, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
+import { describeApproval, runApprovalStep } from '../core/approve'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess } from '../core/ci'
 import { runWithEvents } from '../core/events'
@@ -14,13 +15,13 @@ import { takeReleaseFacts } from '../core/progress'
 import { runTrustedPublishingPreflight } from '../core/publish-checks'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish, isAwaitingApproval } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
-import { getPublishStepLabel, getStagedVersions, getStagingShare, markStagedExplicit } from '../core/staging'
+import { describePublishOutcome, getPublishStepLabel, getStagedVersions, getStagingShare, isStagingConfigured, markStagedExplicit } from '../core/staging'
 import { getBumpStepData, getProviderReleaseStepData, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { tryPostPrComment } from './pr-comment'
 import { describeProviderReleaseResult, providerRelease, providerReleaseSafetyCheck } from './provider-release'
-import { describePublishOutcome, publish, publishSafetyCheck } from './publish'
+import { publish, publishSafetyCheck } from './publish'
 
 import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
 
@@ -153,6 +154,7 @@ function loadReleaseConfig(options: Partial<ReleaseOptions>) {
         packageManager: options.packageManager,
         safetyCheckTimeout: options.safetyCheckTimeout,
         staged: options.staged,
+        approve: options.approve,
       },
       release: {
         commit: options.commit,
@@ -440,6 +442,7 @@ export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseR
   return runWithEvents(options.onProgress, () => withGitCache(() => runRelease(options)), {
     onConfirm: options.onConfirm,
     onOtp: options.onOtp,
+    onPrompt: options.onPrompt,
     command: 'release',
   })
 }
@@ -709,6 +712,40 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     currentStep = 'Publish'
     let publishResponse: PublishResponse | undefined
 
+    /** The approval of the staged versions, then the facts that follow it: the install command and the pages of the approved versions */
+    const approveAndRecord = async () => {
+      currentStep = 'Approval'
+      const data = await runApprovalStep({
+        ui,
+        config,
+        dryRun,
+        packages: bumpResult.bumpedPackages,
+      })
+      if (!data) {
+        return
+      }
+
+      const approved = data.packages.filter(pkg => pkg.status === 'approved')
+      steps.push({
+        name: 'approve',
+        status: approved.length > 0
+          ? 'done'
+          : data.packages.some(pkg => pkg.status === 'failed')
+            ? 'failed'
+            : 'skipped',
+        detail: describeApproval(data),
+      })
+
+      if (facts.publish && publishResponse) {
+        const staged = getStagedVersions()
+        facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages, staged })
+        links.push(...getNpmLinks({
+          config,
+          packages: publishResponse.publishedPackages.filter(pkg => approved.some(version => version.name === pkg.name && version.version === (pkg.newVersion || pkg.version))),
+        }))
+      }
+    }
+
     if (config.release.publish) {
       publishResponse = await ui.step({
         name: 'publish',
@@ -754,7 +791,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
               groups: options.groups,
             })
 
-            if (isCanary) {
+            // With staging, the approval of a canary comes first: its versions are in the files rolled back
+            if (isCanary && !isStagingConfigured(config)) {
               logger.debug('Canary publish done, rolling back modified files...')
               await rollbackModifiedFiles({ config })
             }
@@ -795,6 +833,13 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         await rollbackModifiedFiles({ config })
       }
     }
+    // A canary has no push: its staged versions are approved right after the publish, then its files rolled back
+    if (isCanary && publishResponse && isStagingConfigured(config)) {
+      await approveAndRecord()
+      logger.debug('Canary publish done, rolling back modified files...')
+      await rollbackModifiedFiles({ config })
+    }
+
     const staged = getStagedVersions()
     addStep('publish', Boolean(config.release.publish), publishResponse && (staged.length > 0
       ? describePublishOutcome(publishResponse.publishedPackages, 'Published')
@@ -987,6 +1032,10 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     }
     else {
       addStep('providerRelease', Boolean(config.release.providerRelease), `${plural(postedReleases.length, 'release')} on ${provider}`)
+    }
+
+    if (!isCanary && publishResponse) {
+      await approveAndRecord()
     }
 
     currentStep = 'Social media'

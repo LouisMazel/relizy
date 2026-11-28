@@ -607,6 +607,29 @@ describe('Given loadRelizyConfig function', () => {
     })
   })
 
+  describe('When publish.approve is set', () => {
+    it('Then accepts prompt, true and false, and fails for anything else', async () => {
+      for (const approve of ['prompt', true, false]) {
+        vi.mocked(loadConfig).mockResolvedValue({
+          config: {
+            cwd: '/project',
+            publish: { approve },
+          },
+          _configFile: 'relizy.config.ts',
+        } as any)
+        await expect(loadRelizyConfig()).resolves.toBeDefined()
+      }
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          publish: { approve: 'yes' },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      await expect(loadRelizyConfig()).rejects.toThrow('publish.approve must be \'prompt\', true or false')
+    })
+  })
+
   describe('When templates.tagBody repeats {{newVersion}}', () => {
     it('Then fails, as the version could not be read back from the tags', async () => {
       vi.mocked(loadConfig).mockResolvedValue({

@@ -7,6 +7,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { listStagedVersions } from '@relizy/core'
 import { createGitRepository } from '../../../../../tests/git-repository'
 import { loadRelizyConfig } from '../config'
 import { checkMergePreview } from '../merge-preview/problems'
@@ -15,6 +16,10 @@ import { isVersionPublished } from '../npm-versions'
 vi.mock('../npm-versions', async importOriginal => ({
   ...await importOriginal<typeof import('../npm-versions')>(),
   isVersionPublished: vi.fn(),
+}))
+vi.mock('@relizy/core', async importOriginal => ({
+  ...await importOriginal<typeof import('@relizy/core')>(),
+  listStagedVersions: vi.fn(),
 }))
 
 const cleanups: (() => void)[] = []
@@ -166,6 +171,58 @@ describe('Given the release of the merge of a pull request', () => {
         commitlint: [],
         warnings: ['Could not check whether app@1.1.0 is already published'],
       })
+  })
+
+  it('When the planned version is already staged, Then the publish would fail, and the staging area is only read locally for a project that stages', async () => {
+    setup(`publish: { staged: true, registry: 'https://registry.npmjs.org/' }`)
+    for (const key of [
+      'CI',
+      'GITHUB_WORKFLOW',
+      'CONTINUOUS_INTEGRATION',
+      'BUILD_ID',
+    ]) {
+      vi.stubEnv(key, '')
+    }
+    vi.stubEnv('GITHUB_ACTIONS', '')
+    vi.mocked(listStagedVersions).mockResolvedValue([
+      {
+        stageId: 'a1',
+        name: 'app',
+        version: '1.1.0',
+        tag: 'latest',
+        status: 'staged',
+      },
+    ])
+    const config = await loadRelizyConfig()
+
+    const { problems } = await checkMergePreview({
+      config,
+      plan: planOf('1.1.0'),
+      context,
+      commitlint: false,
+    })
+    expect(problems).toEqual([
+      { kind: 'version-taken', message: 'app@1.1.0 is already staged (stage a1), awaiting approval: the publish would fail. Approve it with "relizy stage approve app" or reject it with "relizy stage reject app"' },
+    ])
+
+    vi.mocked(listStagedVersions).mockRejectedValue(new Error('ENEEDAUTH'))
+    expect((await checkMergePreview({
+      config,
+      plan: planOf('1.1.0'),
+      context,
+      commitlint: false,
+    })).problems).toEqual([])
+
+    vi.mocked(listStagedVersions).mockClear()
+    vi.stubEnv('GITHUB_ACTIONS', 'true')
+    await checkMergePreview({
+      config,
+      plan: planOf('1.1.0'),
+      context,
+      commitlint: false,
+    })
+    expect(listStagedVersions).not.toHaveBeenCalled()
+    vi.unstubAllEnvs()
   })
 
   it('When the release does not publish, Then the registry is not checked', async () => {

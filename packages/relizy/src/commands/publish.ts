@@ -8,11 +8,12 @@ import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertPublishNpmVersion, assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getPublishRoute, getPublishTag, getStagedApprovalUrl, getTrustedPublishing, isInCI, isNpmjsRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
-import { runWithEvents } from '../core/events'
+import { runApprovalStep } from '../core/approve'
+import { getEventContext, runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
 import { getTargetPublishAuth, getTargetRegistry, reportPublishAuth, runTrustedPublishingPreflight } from '../core/publish-checks'
 import { getNpmLinks } from '../core/release-facts'
-import { clearStagedVersions, getAlreadyStagedVersions, getPublishStepLabel, getStagedVersions, getStagingShare, isStagingConfigured, markStagedExplicit } from '../core/staging'
+import { clearStagedVersions, describePublishOutcome, getAlreadyStagedVersions, getPublishStepLabel, getStagedVersions, getStagingShare, isStagedPackage, isStagingConfigured, markStagedExplicit } from '../core/staging'
 import { clearPublishedPackages, emitStepItem, recordPublishedPackage, takePublishStepData } from '../core/step-data'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 import { runCommand } from './run-command'
@@ -186,7 +187,7 @@ function stagesEveryVersion(config: ResolvedRelizyConfig): boolean {
  * The packages of the workspace that can be published, before the bump tells
  * which ones the release publishes
  */
-function readPublishablePackages(config: ResolvedRelizyConfig): Pick<PackageBase, 'name'>[] {
+export function readPublishablePackages(config: ResolvedRelizyConfig): Pick<PackageBase, 'name'>[] {
   return filterOutPrivatePackages(readPackages({
     cwd: config.cwd,
     patterns: getMonorepoPackagePatterns(config),
@@ -355,7 +356,7 @@ function getPlannedVersions(bumpResult: BumpResultTruthy | undefined): Map<strin
 
 export function publish(options: Partial<PublishOptions> = {}) {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return runWithEvents(options.onProgress, () => withGitCache(() => runPublish(options)), { onOtp: options.onOtp })
+  return runWithEvents(options.onProgress, () => withGitCache(() => runPublish(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt })
 }
 
 function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishResponse | undefined> {
@@ -383,6 +384,7 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
           packageManager: options.packageManager,
           safetyCheckTimeout: options.safetyCheckTimeout,
           staged: options.staged,
+          approve: options.approve,
         },
         tokens: { registry: options.token },
         logLevel: options.logLevel,
@@ -472,7 +474,17 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
 
       await executeHook('success:publish', config, dryRun, hookContext)
 
-      const staged = getStagedVersions()
+      // Run alone: the approval of what it staged. In a release, the release approves after the push
+      if (!getEventContext()?.nested) {
+        await runApprovalStep({
+          ui,
+          config,
+          dryRun,
+          packages: toPublish,
+        })
+      }
+
+      const staged = getStagedVersions().filter(version => !version.approved)
       ui.complete({
         message: `${describePublishOutcome(toPublish, dryRun ? 'Simulated publication of' : 'Published')}${distTag}`,
         links: getNpmLinks({
@@ -580,30 +592,6 @@ async function publishAndRecord({ pkg, config, dryRun }: { pkg: PackageBase, con
     emitStepItem('publish', { name, status: 'failed', detail: reason })
     throw error
   }
-}
-
-function isStagedPackage(pkg: PackageBase, staged: { name: string, version: string }[]): boolean {
-  return staged.some(version => version.name === pkg.name && version.version === (pkg.newVersion || pkg.version))
-}
-
-/**
- * What the publish did: `Published a@1.0.0`, or with staging `Published
- * a@1.0.0, staged b@1.0.0` and `Staged b@1.0.0`
- */
-export function describePublishOutcome(packages: PackageBase[], verb: string): string {
-  const staged = getStagedVersions()
-  if (staged.length === 0) {
-    return `${verb} ${describePackages(packages)}`
-  }
-
-  const direct = packages.filter(pkg => !isStagedPackage(pkg, staged))
-  const stagedPackages = packages.filter(pkg => isStagedPackage(pkg, staged))
-  const stagedVerb = verb === 'Published'
-    ? 'Staged'
-    : `${verb.replace(/ publication of$/, ' staging of')}`
-  return direct.length > 0
-    ? `${verb} ${describePackages(direct)}, staged ${describePackages(stagedPackages)}`
-    : `${stagedVerb} ${describePackages(stagedPackages)}`
 }
 
 /** What still awaits approval, and how to approve it */

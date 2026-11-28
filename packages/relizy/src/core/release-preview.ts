@@ -430,6 +430,28 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
     }
   }
 
+  // With publish.staged only: every release of today keeps its steps
+  const approve: PreviewStep[] = config.publish.staged
+    ? [
+        {
+          name: 'approve',
+          label: RELEASE_STEP_LABELS.approve,
+          ...(release.publish === false
+            ? state('publish')
+            : config.publish.approve === false
+              ? { enabled: false, disabledBy: 'publish.approve' }
+              : { enabled: true }),
+        },
+      ]
+    : []
+  // A canary has no push: its approval comes right after the publish
+  const afterPublish = release.canary
+    ? approve
+    : []
+  const afterProviderRelease = release.canary
+    ? []
+    : approve
+
   return [
     { name: 'bump', label: RELEASE_STEP_LABELS.bump, enabled: true },
     {
@@ -442,6 +464,7 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       label: RELEASE_STEP_LABELS.publish,
       ...state('publish'),
     },
+    ...afterPublish,
     {
       name: 'commit-and-tag',
       label: RELEASE_STEP_LABELS['commit-and-tag'],
@@ -465,6 +488,7 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       label: RELEASE_STEP_LABELS['provider-release'],
       ...state('providerRelease'),
     },
+    ...afterProviderRelease,
     {
       name: 'social',
       label: RELEASE_STEP_LABELS.social,

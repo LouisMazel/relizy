@@ -10,6 +10,7 @@ export {
   publish,
   release,
   social,
+  stage,
   sync,
   SyncError,
 } from './commands'

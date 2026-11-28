@@ -12,7 +12,7 @@ import { formatDuration, formatUtcDate, getStagedApprovalUrl, plural } from '@re
 import { describeAIUsage } from './progress'
 import { getReleaseLines } from './release-overview'
 
-export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'sync' | 'providerRelease' | 'social' | 'prComment'
+export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'sync' | 'providerRelease' | 'approve' | 'social' | 'prComment'
 
 export interface ReleaseStepReport {
   name: ReleaseStepName
@@ -208,6 +208,7 @@ const STEP_LABELS: Record<ReleaseStepName, string> = {
   push: 'Push',
   sync: 'Branch sync',
   providerRelease: 'Provider release',
+  approve: 'Approval',
   social: 'Social media',
   prComment: 'PR comment',
 }
@@ -224,6 +225,7 @@ const LASTING_STEPS = new Set<ReleaseStepName>([
   'push',
   'sync',
   'providerRelease',
+  'approve',
   'social',
 ])
 

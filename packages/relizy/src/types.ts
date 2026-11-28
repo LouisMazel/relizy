@@ -1,7 +1,7 @@
-import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType, StagedPublishing } from '@relizy/core'
+import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType, StagedEntry, StagedPublishing } from '@relizy/core'
 import type { CallSettings, LanguageModel } from 'ai'
 import type { ReleaseOverview, ReleaseReport, RelizyConfigOverrides, ResolvedRelizyConfig, RootPackage } from './core'
-import type { RelizyEventListener } from './core/events'
+import type { ApproveStepPackage, RelizyEventListener } from './core/events'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 
@@ -143,7 +143,9 @@ export interface ConfirmPlan {
 }
 
 /**
- * What the registry asks a one-time password for, as `onOtp` receives it
+ * What the registry asks a one-time password for, as `onOtp` receives it. A publish asks it once
+ * per registry and reuses it for the next packages; an approval, a rejection or a trust setup asks it
+ * once for its whole batch, never reusing the one of the publish
  */
 export interface OtpRequest {
   /**
@@ -154,6 +156,81 @@ export interface OtpRequest {
    * The package being published
    */
   packageName?: string
+  /**
+   * What the code is for: `publish`, `approve` (staged versions), `reject` (staged versions), `trust`
+   * (trusted publishers). Absent for a publish of relizy before 2.5
+   */
+  purpose?: 'publish' | 'approve' | 'reject' | 'trust'
+  /**
+   * The versions (or packages) the code covers, for a batch
+   */
+  count?: number
+}
+
+/**
+ * A question relizy asks an application instead of the prompt of the terminal (`onPrompt`): never
+ * the validation of the bump plan, which stays `onConfirm`. Answer `true` to go on; `false` (or no
+ * handler without terminal) is the safe answer: nothing approved, rejected, revoked or written
+ */
+export interface AppPrompt {
+  /**
+   * - `approve-staged`: approve the staged versions with one 2FA
+   * - `reject-staged`: reject the staged versions (final)
+   * - `replace-trust`: revoke and recreate trusted publisher configurations that differ
+   * - `write-config`: write the `publish.staged` value `relizy trust` proposes (`detail` holds the diff)
+   */
+  kind: 'approve-staged' | 'reject-staged' | 'replace-trust' | 'write-config'
+  items: Array<{
+    name: string
+    version?: string
+    stageId?: string
+    detail?: string
+  }>
+}
+
+/**
+ * The options of `stage()`: list, approve or reject the staged versions of the packages of the project
+ */
+export interface StageOptions {
+  /** `list` (read-only), `approve` or `reject` (final) */
+  action: 'list' | 'approve' | 'reject'
+  /**
+   * Only these packages, by name. Without them nor `all`: `list` lists every public package of the
+   * project, `approve` and `reject` ask in an interactive terminal (all checked) and fail without one
+   */
+  packages?: string[]
+  /** Every staged version of the public packages of the project */
+  all?: boolean
+  /** The 2FA code, else asked through `onOtp` or the terminal */
+  otp?: string
+  /**
+   * Show what would be done: npm is never called, nor `onOtp`
+   * @default false
+   */
+  dryRun?: boolean
+  /** Gives the 2FA code (`purpose: 'approve'` or `'reject'`), once for the batch */
+  onOtp?: (request: OtpRequest) => string | Promise<string>
+  /** Confirms the rejection (`reject-staged`): without it and without terminal, nothing is rejected */
+  onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
+  /** Receives the progress of the run, as typed events */
+  onProgress?: RelizyEventListener
+  /** Name of the config file to use (`relizy.<name>.config.ts`) */
+  configName?: string
+  /** Config already resolved by `loadRelizyConfig()` */
+  config?: ResolvedRelizyConfig
+  /** Profile to apply */
+  profile?: string
+  /** Log level */
+  logLevel?: RelizyLogLevel
+}
+
+/** What `stage()` did */
+export interface StageResponse {
+  action: StageOptions['action']
+  /** The staged versions of the packages (`list`), or the ones selected (`approve`, `reject`) */
+  staged: StagedEntry[]
+  /** One result per version approved or rejected */
+  results: ApproveStepPackage[]
 }
 
 export interface PostedRelease {
@@ -989,6 +1066,16 @@ export interface PublishConfig {
    * @see https://relizy.dev/guide/staged-publishing
    */
   staged?: StagedPublishing
+  /**
+   * What `relizy release` (and `relizy publish` run alone) does with the versions it staged, once pushed. Only used when the run staged something.
+   * - `'prompt'`: ask in an interactive terminal (an app answers through `onPrompt`), then one 2FA for all of them.
+   * - `true`: approve without asking; npm still asks for the 2FA code.
+   * - `false`: never; approve later with `relizy stage approve` or on npmjs.com.
+   *
+   * Never in CI, whatever the value: npm only accepts an interactive 2FA, never a CI or OIDC token. The release succeeds and lists the versions awaiting approval. Pass `--approve` or `--no-approve` to decide for one run.
+   * @default 'prompt'
+   */
+  approve?: 'prompt' | boolean
 }
 
 export interface PublishOptions extends PublishConfig {
@@ -1035,9 +1122,15 @@ export interface PublishOptions extends PublishConfig {
    * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
    * asked once per registry, then reused for the next packages. An empty password (or none) cancels
    * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
-   * by it fails the publish. For an application asking in its own interface
+   * by it fails the publish. For an application asking in its own interface. Also asked for the approval
+   * of the staged versions (`purpose: 'approve'`, once for the batch)
    */
   onOtp?: (request: OtpRequest) => string | Promise<string>
+  /**
+   * Answers the questions of the staged versions instead of the prompt of the terminal: approve them now
+   * (`approve-staged`, with `publish.approve: 'prompt'`). Without it and without terminal, nothing is approved
+   */
+  onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
@@ -1200,9 +1293,15 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
    * asked once per registry, then reused for the next packages. An empty password (or none) cancels
    * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
-   * by it fails the publish. For an application asking in its own interface
+   * by it fails the publish. For an application asking in its own interface. Also asked for the approval
+   * of the staged versions (`purpose: 'approve'`, once for the batch)
    */
   onOtp?: (request: OtpRequest) => string | Promise<string>
+  /**
+   * Answers the questions of the staged versions instead of the prompt of the terminal: approve them now
+   * (`approve-staged`, with `publish.approve: 'prompt'`). Without it and without terminal, nothing is approved
+   */
+  onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
   /**
    * Config already resolved by `loadRelizyConfig()`: used as is instead of loading the config file
    * (the profile, the `overrides` and the options of the call still apply over it)

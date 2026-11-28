@@ -136,6 +136,8 @@ export const PROFILE_OPTIONS: Record<ProfileOptionsSection, Record<string, Optio
     checkWorkspaceDependencies: 'boolean',
     // true, false or { tags, packages }: checked by assertValidStaged
     staged: null,
+    // 'prompt', true or false: checked by assertValidApprove
+    approve: null,
   },
   release: {
     canary: 'boolean',

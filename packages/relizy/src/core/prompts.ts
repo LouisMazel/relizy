@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { confirm, isCancel, select, text } from '@clack/prompts'
+import { confirm, isCancel, multiselect, select, text } from '@clack/prompts'
 import { RelizyCancelError } from './errors'
 
 /**
@@ -75,4 +75,19 @@ export async function askText({ message, placeholder, cancelMessage = 'Cancelled
   cancelMessage?: string
 }): Promise<string> {
   return answerOf<string>(await text({ message, placeholder }), cancelMessage)
+}
+
+export async function askMultiselect<T extends string>({ message, options, initialValues, cancelMessage = 'Cancelled' }: {
+  message: string
+  options: { value: T, label: string, hint?: string }[]
+  initialValues?: T[]
+  cancelMessage?: string
+}): Promise<T[]> {
+  // The options of multiselect are a union type that the generic value does not narrow
+  return answerOf<T[]>(await multiselect({
+    message,
+    options: options as unknown as Parameters<typeof multiselect<T>>[0]['options'],
+    initialValues,
+    required: false,
+  }), cancelMessage)
 }

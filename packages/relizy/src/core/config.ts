@@ -79,6 +79,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       skipExistingVersions: false as boolean,
       checkWorkspaceDependencies: true as boolean,
       staged: false as StagedPublishing,
+      approve: 'prompt' as 'prompt' | boolean,
       packageManager: detectPackageManager(cwd),
     } satisfies PublishConfig,
     tokens: {
@@ -311,6 +312,14 @@ function assertValidStaged(config: ResolvedConfig): void {
 
   if (Object.keys(rest).length > 0 || (tags === undefined && packages === undefined) || (tags !== undefined && !isList(tags)) || (packages !== undefined && !isList(packages))) {
     throw new ConfigOptionError('publish.staged', forms)
+  }
+}
+
+/** `publish.approve` is `'prompt'`, `true` or `false` */
+function assertValidApprove(config: ResolvedConfig): void {
+  const approve: unknown = config.publish?.approve
+  if (approve !== undefined && approve !== 'prompt' && typeof approve !== 'boolean') {
+    throw new ConfigOptionError('publish.approve', 'publish.approve must be \'prompt\', true or false')
   }
 }
 
@@ -644,6 +653,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   assertValidTagBody(results.config)
   assertValidSyncRules(results.config)
   assertValidStaged(results.config)
+  assertValidApprove(results.config)
   validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))

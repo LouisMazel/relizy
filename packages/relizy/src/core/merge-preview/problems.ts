@@ -1,11 +1,14 @@
+import type { PackageBase } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import type { MergePreviewContext } from './context'
 import type { MergePreviewOutcome, MergePreviewPlan } from './plan'
-import { getCommitsInRange, getWorkspacePackages, parseGitCommit, tryGit } from '@relizy/core'
+import { logger } from '@maz-ui/node'
+import { getCommitsInRange, getWorkspacePackages, isNpmjsRegistry, listStagedVersions, parseGitCommit, tryGit } from '@relizy/core'
+import { getApprovalBlocker } from '../approve'
 import { getTitleMode, hasRelizyCommitMsgHook, lintCommitMessage } from '../commitlint'
 import { isSetInUserConfig } from '../config'
 import { getReleaseTagNames } from '../git'
-import { resolveRegistryTargetsForPackage } from '../npm-registry'
+import { getNpmRegistry, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages } from '../npm-registry'
 import { isVersionPublished } from '../npm-versions'
 
 /**
@@ -78,6 +81,46 @@ async function checkPublishedVersions(config: ResolvedRelizyConfig, outcome: Mer
       }
     })
   }))
+
+  await checkStagedVersions(config, packages, checks)
+}
+
+/**
+ * A planned version already staged takes its number too (staged and published
+ * versions share one index): for a project that stages, outside a CI and
+ * trusted publishing, where the npm login of the person can read the staging
+ * area. Never fails the preview.
+ */
+async function checkStagedVersions(config: ResolvedRelizyConfig, packages: PackageBase[], checks: MergePreviewChecks): Promise<void> {
+  if (packages.length === 0 || !config.publish.staged || getApprovalBlocker()) {
+    return
+  }
+
+  const registries = [
+    ...new Set(resolveRegistryTargetsForPackages(packages, config).map(target => target.registry || getNpmRegistry(config.cwd)).filter(isNpmjsRegistry)),
+  ]
+  for (const registry of registries) {
+    try {
+      const staged = await listStagedVersions({
+        cwd: config.cwd,
+        registry,
+        packageNames: packages.map(pkg => pkg.name),
+        timeoutMs: config.publish.safetyCheckTimeout ?? 15000,
+        logger,
+      })
+      for (const pkg of packages) {
+        const entry = staged.find(candidate => candidate.name === pkg.name && candidate.version === pkg.newVersion)
+        if (entry) {
+          checks.problems.push({ kind: 'version-taken', message: `${pkg.name}@${pkg.newVersion} is already staged (stage ${entry.stageId}), awaiting approval: the publish would fail. Approve it with "relizy stage approve ${pkg.name}" or reject it with "relizy stage reject ${pkg.name}"` })
+        }
+      }
+    }
+    catch (error) {
+      logger.debug(`Staged versions not readable for the merge preview: ${error instanceof Error
+        ? error.message
+        : String(error)}`)
+    }
+  }
 }
 
 async function checkRemoteTags(config: ResolvedRelizyConfig, outcome: MergePreviewOutcome, checks: MergePreviewChecks): Promise<void> {

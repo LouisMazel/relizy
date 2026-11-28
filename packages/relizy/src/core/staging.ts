@@ -164,3 +164,34 @@ export function getPublishStepLabel(share: 'none' | 'some' | 'all'): string {
       ? 'Publishing and staging the packages'
       : 'Publishing the packages'
 }
+
+export function isStagedPackage(pkg: PackageBase, staged: { name: string, version: string }[]): boolean {
+  return staged.some(version => version.name === pkg.name && version.version === (pkg.newVersion || pkg.version))
+}
+
+/**
+ * What the publish did: `Published a@1.0.0`, or with staging `Published
+ * a@1.0.0, staged b@1.0.0` and `Staged b@1.0.0`
+ */
+export function describePublishOutcome(packages: PackageBase[], verb: string): string {
+  const staged = getStagedVersions()
+  if (staged.length === 0) {
+    return `${verb} ${describePackages(packages)}`
+  }
+
+  const direct = packages.filter(pkg => !isStagedPackage(pkg, staged))
+  const stagedPackages = packages.filter(pkg => isStagedPackage(pkg, staged))
+  const stagedVerb = verb === 'Published'
+    ? 'Staged'
+    : `${verb.replace(/ publication of$/, ' staging of')}`
+  return direct.length > 0
+    ? `${verb} ${describePackages(direct)}, staged ${describePackages(stagedPackages)}`
+    : `${stagedVerb} ${describePackages(stagedPackages)}`
+}
+
+/** The versions: `relizy@2.0.0`, up to 3, else their count */
+function describePackages(packages: PackageBase[]): string {
+  return packages.length <= 3
+    ? packages.map(pkg => `${pkg.name}@${pkg.newVersion || pkg.version}`).join(', ')
+    : `${packages.length} packages`
+}

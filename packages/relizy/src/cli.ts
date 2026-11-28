@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { AGENT_TARGETS, logger, printBanner } from '@maz-ui/node'
 import { getCIName, isInCI } from '@relizy/core'
 import { Command, InvalidArgumentError, Option } from 'commander'
-import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social, sync } from './commands'
+import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social, stage, sync } from './commands'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
 import { enableCliUi } from './core/release-ui'
@@ -288,10 +288,13 @@ program
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .option('--staged', 'Stage the versions on npm for approval instead of publishing them, canaries included (like publish.staged: true)')
   .option('--no-staged', 'Publish the versions directly, without staging (like publish.staged: false)')
+  .option('--approve', 'Approve the versions the run staged without asking, with one 2FA (like publish.approve: true)')
+  .option('--no-approve', 'Never approve the versions the run staged: approve them later (like publish.approve: false)')
   .action(async (options) => {
     try {
       await publish({
         staged: getCliSwitch('staged'),
+        approve: getCliSwitch('approve'),
         registry: options.registry,
         tag: options.tag,
         access: options.access,
@@ -458,6 +461,56 @@ program
       only: options.only,
     })
   })
+
+const stageCommand = program
+  .command('stage')
+  .description('The versions staged on npm, awaiting approval: list, approve (one 2FA) or reject them, with your npm login')
+
+/** Runs a subcommand of `relizy stage` with the global options */
+async function runStageCommand(action: 'list' | 'approve' | 'reject', packages: string[], options: { all?: boolean, otp?: string, json?: boolean }) {
+  try {
+    const response = await stage({
+      action,
+      packages,
+      all: options.all,
+      otp: options.otp,
+      dryRun: program.opts().dryRun,
+      logLevel: program.opts().logLevel,
+      configName: program.opts().config,
+      profile: program.opts().profile,
+    })
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(action === 'list'
+        ? response.staged
+        : response.results, null, 2)}\n`)
+    }
+  }
+  catch (error) {
+    exitWithError(`Failed to ${action} the staged versions -`, error)
+  }
+}
+
+stageCommand
+  .command('list')
+  .description('List the staged versions of the public packages of the project (read-only)')
+  .option('--json', 'Print the staged versions as JSON')
+  .action(options => runStageCommand('list', [], options))
+
+stageCommand
+  .command('approve [packages...]')
+  .description('Approve the staged versions of these packages, --all, or the ones chosen in the terminal, with one 2FA')
+  .option('--all', 'Every staged version of the public packages of the project')
+  .option('--otp <code>', 'The 2FA code of npm')
+  .option('--json', 'Print the results as JSON')
+  .action((packages: string[], options) => runStageCommand('approve', packages, options))
+
+stageCommand
+  .command('reject [packages...]')
+  .description('Reject the staged versions of these packages, --all, or the ones chosen in the terminal, after a confirmation (final)')
+  .option('--all', 'Every staged version of the public packages of the project')
+  .option('--otp <code>', 'The 2FA code of npm')
+  .option('--json', 'Print the results as JSON')
+  .action((packages: string[], options) => runStageCommand('reject', packages, options))
 
 const mcp = program
   .command('mcp')
@@ -708,6 +761,8 @@ program
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .option('--staged', 'Stage the versions on npm for approval instead of publishing them, canaries included (like publish.staged: true)')
   .option('--no-staged', 'Publish the versions directly, without staging (like publish.staged: false)')
+  .option('--approve', 'Approve the versions the run staged without asking, with one 2FA (like publish.approve: true)')
+  .option('--no-approve', 'Never approve the versions the run staged: approve them later (like publish.approve: false)')
   .option('--canary', 'Publish a canary release from the current commit')
   .addOption(privatePackagesOption())
   .option('--ai', 'Force-enable AI for release notes and social posts')
@@ -721,6 +776,7 @@ program
       await release({
         type: getReleaseType(options),
         staged: getCliSwitch('staged'),
+        approve: getCliSwitch('approve'),
         preid: options.preid,
         suffix: options.suffix,
         canary: options.canary,
