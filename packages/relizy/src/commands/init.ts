@@ -7,7 +7,7 @@ import process from 'node:process'
 import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, spinner, text } from '@clack/prompts'
 import { detectAgentTargets, execPromise, logger } from '@maz-ui/node'
 import { isInCI, tryGitSync } from '@relizy/core'
-import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getNpmRegistry, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isPublicNpmRegistry, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
+import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findExtensibleCommitMsgHook, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getNpmRegistry, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isPublicNpmRegistry, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
 import { askAgentTargets, setupRelizyAgents } from '../core/agents'
 import { readOwnVersion } from '../core/own-version'
 
@@ -434,6 +434,8 @@ interface InitPlan {
   rootFields: { name?: string, version?: string }
   scripts: Record<string, string>
   hook: boolean
+  /** relizy commitlint is added at the end of the existing hook */
+  hookAdded?: boolean
   /** The command adding relizy to the devDependencies, when it is not a dependency yet */
   install?: string
   /** The hook is written in `.git/hooks`, and at each install by the prepare script */
@@ -491,7 +493,10 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
     const detail = `in the devDependencies (${plan.install})`
     rows.push(`${c.cyan('install')}  relizy ${c.dim(detail)}`)
   }
-  if (plan.hook) {
+  if (plan.hook && plan.hookAdded) {
+    rows.push(`${c.yellow('update')}   commit-msg hook ${c.dim('adds relizy commitlint at its end')}`)
+  }
+  else if (plan.hook) {
     const detail = plan.localHook
       ? 'runs relizy commitlint at each commit, in .git/hooks and at each install for the other clones'
       : 'runs relizy commitlint at each commit'
@@ -601,9 +606,9 @@ async function installRelizy(cwd: string, command: string): Promise<void> {
   }
 }
 
-function installHook(cwd: string, force: boolean): InstalledHook | undefined {
+function installHook(cwd: string, { force, add }: { force: boolean, add: boolean }): InstalledHook | undefined {
   try {
-    return installCommitMsgHook({ cwd, force })
+    return installCommitMsgHook({ cwd, force, add })
   }
   catch (error) {
     log.warn(`commit-msg hook not installed - ${error instanceof Error
@@ -617,10 +622,10 @@ function installHook(cwd: string, force: boolean): InstalledHook | undefined {
  * Install the commit-msg hook: not asked when one already runs relizy
  * commitlint, and another hook is only replaced once confirmed
  */
-async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Promise<{ install: boolean, force: boolean }> {
+async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Promise<{ install: boolean, force: boolean, add: boolean }> {
   if (hasRelizyCommitMsgHook(cwd)) {
     kept.push({ target: 'commit-msg hook', detail: 'already runs relizy commitlint' })
-    return { install: false, force: false }
+    return { install: false, force: false, add: false }
   }
 
   const other = findOtherCommitMsgHook(cwd)
@@ -629,7 +634,19 @@ async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Pro
       message: 'Lint each commit message with relizy commitlint? (commit-msg hook)',
       initialValue: true,
     }))
-    return { install, force: false }
+    return { install, force: false, add: false }
+  }
+
+  // A plain shell hook without commit linter: relizy commitlint is added at its end
+  if (findExtensibleCommitMsgHook(cwd)) {
+    const add = await ask(interactive, true, () => confirm({
+      message: `Add relizy commitlint to the commit-msg hook (${other})?`,
+      initialValue: true,
+    }))
+    if (!add) {
+      log.warn(`A commit-msg hook already exists (${other}): kept, add "${COMMIT_MSG_HOOK_COMMAND}" to it to check the commit messages`)
+    }
+    return { install: add, force: false, add }
   }
 
   const replace = await ask(interactive, false, () => confirm({
@@ -639,7 +656,7 @@ async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Pro
   if (!replace) {
     log.warn(`A commit-msg hook already exists (${other}): kept, add "${COMMIT_MSG_HOOK_COMMAND}" to it to check the commit messages`)
   }
-  return { install: replace, force: replace }
+  return { install: replace, force: replace, add: false }
 }
 
 /**
@@ -1180,7 +1197,7 @@ async function runInit({ options, detection, configFile, interactive }: {
   const kept: KeptStep[] = []
   const hook = steps.has('commitlint')
     ? await askHook(cwd, interactive, kept)
-    : { install: false, force: false }
+    : { install: false, force: false, add: false }
 
   const agents = steps.has('agents')
     ? await askAgents(cwd, interactive, kept)
@@ -1261,6 +1278,7 @@ async function runInit({ options, detection, configFile, interactive }: {
       ...prepareScript,
     },
     hook: hook.install,
+    hookAdded: hook.add,
     // The config imports relizy, the prepare script and the CI run it
     ...(!detection.root.hasRelizy && {
       install: getInstallCommand(detection, readOwnVersion()),
@@ -1307,14 +1325,17 @@ async function runInit({ options, detection, configFile, interactive }: {
   }
 
   const installedHook = plan.hook
-    ? installHook(cwd, hook.force)
+    ? installHook(cwd, hook)
     : undefined
   if (installedHook) {
+    const hookPath = relative(cwd, installedHook.path)
     log.success(installedHook.status === 'unchanged'
-      ? `The commit-msg hook already runs relizy commitlint (${relative(cwd, installedHook.path)})`
-      : `${installedHook.status === 'replaced'
-        ? 'Replaced'
-        : 'Installed'} the commit-msg hook (${relative(cwd, installedHook.path)})`)
+      ? `The commit-msg hook already runs relizy commitlint (${hookPath})`
+      : installedHook.status === 'added'
+        ? `Added relizy commitlint to the commit-msg hook (${hookPath})`
+        : `${installedHook.status === 'replaced'
+          ? 'Replaced'
+          : 'Installed'} the commit-msg hook (${hookPath})`)
     if (installedHook.removed) {
       log.success(`Removed the old commit-msg hook, no longer run (${relative(cwd, installedHook.removed)})`)
     }

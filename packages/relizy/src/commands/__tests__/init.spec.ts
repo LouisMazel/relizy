@@ -326,6 +326,69 @@ describe('Given init command', () => {
       expect(readJson('package.json').scripts.prepare).toBeUndefined()
     })
 
+    it('Then adds relizy commitlint at the end of a plain husky hook, without asking with --yes', async () => {
+      mkdirSync(join(cwd, '.husky'))
+      write('.husky/commit-msg', 'pnpm exec ls-lint\n')
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.hook).toMatchObject({ status: 'added' })
+      expect(read('.husky/commit-msg')).toBe('pnpm exec ls-lint\nnpx --no -- relizy commitlint --edit "$1"\n')
+      expect(vi.mocked(log.warn)).not.toHaveBeenCalledWith(expect.stringContaining('A commit-msg hook already exists'))
+      expect(vi.mocked(log.success)).toHaveBeenCalledWith('Added relizy commitlint to the commit-msg hook (.husky/commit-msg)')
+      const [changes] = notes().find(([, title]) => title === 'Changes')!
+      expect(changes).toContain('update   commit-msg hook adds relizy commitlint at its end')
+    })
+
+    it('Then adds relizy commitlint to a plain hook of .git/hooks, only run once relizy is installed', async () => {
+      write('.git/hooks/commit-msg', '#!/bin/sh\nmake lint\n')
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.hook).toMatchObject({ status: 'added' })
+      expect(read('.git/hooks/commit-msg')).toBe('#!/bin/sh\nmake lint\nif [ -e node_modules/.bin/relizy ]; then npx --no -- relizy commitlint --edit "$1"; fi\n')
+    })
+
+    it('Then asks before adding relizy commitlint to the hook, and keeps it with the warning when declined', async () => {
+      setInteractiveTerminal(true)
+      mkdirSync(join(cwd, '.husky'))
+      write('.husky/commit-msg', '#!/usr/bin/env sh\necho "checking"\n')
+      vi.mocked(confirm).mockImplementation(({ message }) => Promise.resolve(!String(message).startsWith('Add relizy commitlint to the commit-msg hook')))
+      vi.mocked(select).mockImplementation(({ initialValue }) => Promise.resolve(initialValue))
+      vi.mocked(multiselect).mockImplementation(({ initialValues }) => Promise.resolve([
+        ...(initialValues ?? []),
+      ]))
+      vi.mocked(text).mockImplementation(({ initialValue }) => Promise.resolve(initialValue ?? ''))
+
+      try {
+        await init({ cwd })
+      }
+      finally {
+        setInteractiveTerminal(false)
+      }
+
+      expect(vi.mocked(confirm)).toHaveBeenCalledWith(expect.objectContaining({ message: 'Add relizy commitlint to the commit-msg hook (.husky/commit-msg)?', initialValue: true }))
+      expect(read('.husky/commit-msg')).toBe('#!/usr/bin/env sh\necho "checking"\n')
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringContaining('A commit-msg hook already exists (.husky/commit-msg): kept'))
+    })
+
+    it.each([
+      ['another commit linter', 'npx --no -- commitlint --edit "$1"\n'],
+      ['a script of another language', '#!/usr/bin/env node\nconsole.log(1)\n'],
+      ['an exec ending the hook', 'exec < /dev/tty && npx cz --hook || true\n'],
+      ['an exit ending the hook', 'make lint\nexit 0\n'],
+      ['an exit after then', 'if [ -n "$CI" ]; then exit 0; fi\nmake lint\n'],
+    ])('Then keeps a husky hook with %s, with the warning', async (_, content) => {
+      mkdirSync(join(cwd, '.husky'))
+      write('.husky/commit-msg', content)
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.hook).toBeUndefined()
+      expect(read('.husky/commit-msg')).toBe(content)
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith(`A commit-msg hook already exists (.husky/commit-msg): kept, add "npx --no -- relizy commitlint --edit "$1"" to it to check the commit messages`)
+    })
+
     it('Then adds the prepare script for a hook of .git/hooks already installed', async () => {
       write('.git/hooks/commit-msg', '#!/bin/sh\nnpx --no -- relizy commitlint --edit "$1"\n')
 
